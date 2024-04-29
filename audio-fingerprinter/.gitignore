@@ -1,0 +1,4 @@
+# Meson build directories
+builddir/
+debug/
+release/
