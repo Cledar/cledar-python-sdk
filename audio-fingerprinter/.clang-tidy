@@ -1,0 +1,3 @@
+Checks: '-*,cppcoreguidelines-*,google-*', '-cppcoreguidelines-non-private-member-variables-in-classes'
+WarningsAsErrors: '*'
+HeaderFilterRegex: '.*'

@@ -1,0 +1,249 @@
+#include <librdkafka/rdkafkacpp.h>
+
+#include <algorithm>
+#include <boost/program_options.hpp>
+#include <iostream>
+#include <string>
+
+#include "fingerprint.h"
+
+constexpr const char *DEFAULT_TOPIC = "fingerprint";
+const std::string FFMPEG_CMD("ffmpeg ");
+const std::string INPUT_FLAG("-i ");
+const std::string OUTPUT_FORMAT(" -f s16le -acodec pcm_s16le -ac 1 pipe:1");
+#ifdef _DEBUG
+const std::string FFMPEG_VERBOSITY("");
+#else
+const std::string FFMPEG_VERBOSITY(" -loglevel warning");
+#endif
+
+namespace po = boost::program_options;
+
+class KafkaProducer {
+ private:
+  std::unique_ptr<RdKafka::Producer> producer;
+
+ public:
+  explicit KafkaProducer(const std::string &brokers) {
+    std::string errstr;
+    auto conf = std::unique_ptr<RdKafka::Conf>(
+        RdKafka::Conf::create(RdKafka::Conf::CONF_GLOBAL));
+    conf->set("bootstrap.servers", brokers, errstr);
+
+    producer = std::unique_ptr<RdKafka::Producer>(
+        RdKafka::Producer::create(conf.get(), errstr));
+    if (!producer) {
+      throw std::ios_base::failure("Failed to create producer: " + errstr);
+    }
+  }
+
+  void produce(std::string message, const std::string key,
+               const std::string &topic) {
+    RdKafka::ErrorCode resp = producer->produce(
+        topic, RdKafka::Topic::PARTITION_UA, RdKafka::Producer::RK_MSG_COPY,
+        message.data(),  // TODO(kkrol): Should it be c_str? same in key
+        message.size(), key.data(), key.size(),
+        0,  // TODO(kkrol): 0 timestamp?
+        nullptr, nullptr);
+
+    if (resp != RdKafka::ERR_NO_ERROR) {
+      std::cerr << "Failed to produce message: " << RdKafka::err2str(resp)
+                << std::endl;  // TODO(kkrol): add spdlog
+    }
+  }
+  void flush() {
+    producer->flush(MAGIC_5000);  // TODO(kkrol): choose not random value
+  }
+};
+
+class StreamFingerprinterConfig {
+ protected:
+  std::string kafka_address_, audio_source_, station_id_, channel_,
+      fingerprint_topic_;
+  size_t sframe_size_;
+  int buffer_read_, step_size_, ts_;
+  std::vector<int> offsets_;
+
+ public:
+  inline const std::string &kafka_address() const { return kafka_address_; }
+  inline const std::string &audio_source() const { return audio_source_; }
+  inline const std::string &channel() const { return channel_; }
+  inline const std::string &station_id() const { return station_id_; }
+  inline const std::string &fingerprint_topic() const {
+    return fingerprint_topic_;
+  }
+  inline size_t sframe_size() const { return sframe_size_; }
+  inline int buffer_read() const { return buffer_read_; }
+  inline int ts() const { return ts_; }
+  inline int step_size() const { return step_size_; }
+  inline const std::vector<int> &offsets() const { return offsets_; }
+
+  StreamFingerprinterConfig(int argc, char *argv[]) {  // NOLINT
+    po::options_description desc("Allowed options");
+    // clang-format off
+    desc.add_options()(
+        "kafka-address", po::value<std::string>(&kafka_address_),
+          "Kafka broker address")(
+        "audio-source", po::value<std::string>(&audio_source_),
+          "Audio source file")(
+        "sframe-size",
+          po::value<size_t>(&sframe_size_)->default_value(SFRAME_IN_SIZE),
+          "Number of samples in each fft frame")(
+        "buffer-size", po::value<int>(&buffer_read_),
+          "Read size to buffer (default 10x sframe size)")(
+        "offset", po::value<std::vector<int>>(&offsets_)->multitoken(),
+          "Offsets to add to the vector")(
+        "step-size",
+          po::value<int>(&step_size_)->default_value(SFRAME_IN_SIZE / 2),
+          "Distance between two sframes")(
+        "start-ts", po::value<int>(&ts_)->default_value(0),
+          "Initial timestamp")(
+        "channel", po::value<std::string>(&channel_), "Name of that channel")(
+        "station-id", po::value<std::string>(&station_id_), "Station ID")(
+        "fingerprint-topic",
+          po::value<std::string>(&fingerprint_topic_)
+              ->default_value(DEFAULT_TOPIC),
+          "Topic on Kafka to send fingerprints to");
+    // clang-format on
+    po::positional_options_description positionalOptions;
+    positionalOptions.add("audio-source", 1);
+
+    po::variables_map vm;
+    po::store(po::command_line_parser(argc, argv)
+                  .options(desc)
+                  .positional(positionalOptions)
+                  .run(),
+              vm);
+    po::notify(vm);
+
+    check_arguments(vm);
+  }
+
+  void check_arguments(po::variables_map &vm) {
+    if (vm.count("kafka-address") == 0) {
+      throw po::invalid_option_value(
+          "Kafka broker address is required");  // TODO(kkrol): Make it optional
+                                                // but add serious log if not
+                                                // provided
+    }
+    if (vm.count("audio-source") == 0) {
+      throw po::invalid_option_value("Audio source file is required");
+    }
+    if (vm.count("channel") == 0) {
+      channel_ = audio_source_;
+    }
+    if (vm.count("station-id") == 0) {
+      station_id_ = audio_source_;
+    }
+    if (vm.count("buffer-size") == 0) {
+      buffer_read_ = static_cast<int>(sframe_size_) * READ_BUFFER_MULT;
+    }
+    if (buffer_read_ % step_size_ != 0) {
+      throw po::invalid_option_value(
+          "Buffer read must be multiple of step size");
+    }
+    if (offsets_.empty()) {
+      offsets_ = {0, step_size_ / 2};
+    }
+
+    // TODO(kkrol): spdlog::INFO/DEBUG
+    // std::cerr << kafka_address_ << " " << audio_source_ << " " <<
+    // sframe_size_
+    //           << " " << buffer_read_ << " " << step_size_ << " " <<
+    //           station_id_
+    //           << " " << channel_ << std::endl;
+    // for (auto offset : offsets_) {
+    //   std::cerr << offset << " ";
+    // }
+    // std::cerr << std::endl;
+  }
+};
+
+class OverlappedStreamReader {
+ private:
+  bool requires_shift_ = false;
+
+ protected:
+  size_t carry_over_;
+  int buffer_read_;
+  std::string command_;
+  std::unique_ptr<FILE, decltype(&pclose)> pipe_;
+
+ public:
+  OverlappedStreamReader(const std::string &audio_source, size_t sf_size,
+                         int buf_read)
+      : carry_over_(sf_size - 1),
+        buffer_read_(buf_read),
+        command_(FFMPEG_CMD + INPUT_FLAG + audio_source + FFMPEG_VERBOSITY +
+                 OUTPUT_FORMAT),
+        pipe_(popen(command_.c_str(), "r"), &pclose) {
+    if (!pipe_) {
+      throw std::ios_base::failure("Error opening pipe");
+    }
+  }
+
+  std::vector<sample_t> init_buffer() {
+    std::vector<sample_t> sample_buffer(buffer_read_ + carry_over_);
+    size_t n_samples_read =
+        fread(sample_buffer.data(), sizeof(sample_t), carry_over_, pipe_.get());
+    if (n_samples_read != carry_over_) {
+      throw std::ios_base::failure("Initial read from pipe too small");
+    }
+    return sample_buffer;
+  }
+
+  std::span<sample_t> read_samples(std::vector<sample_t> &sample_buffer) {
+    if (requires_shift_) {
+      std::shift_left(sample_buffer.begin(), sample_buffer.end(), buffer_read_);
+    }
+    size_t n_samples_read = fread(&sample_buffer[carry_over_], sizeof(sample_t),
+                                  buffer_read_, pipe_.get());
+    requires_shift_ = true;
+    if (n_samples_read == 0) {
+      if (feof(pipe_.get())) {
+        std::cerr << "EOF Reached";
+      } else if (ferror(pipe_.get())) {
+        throw std::ios_base::failure("Error reading from pipe");
+      }
+    }
+    return std::span(sample_buffer).first(n_samples_read + carry_over_);
+  }
+};
+
+int main(int argc, char *argv[]) {
+  StreamFingerprinterConfig config(argc, argv);
+  KafkaProducer producer(config.kafka_address());
+
+  std::vector<fingerprint_t> fingerprints;
+  fingerprints.reserve(PFRAME_CELLS * MAGIC_100);
+  std::vector<Fingerprinter> fingerprinters;
+  fingerprinters.reserve(config.offsets().size());
+  for (size_t i = 0; i < config.offsets().size(); i++) {
+    fingerprinters.emplace_back(config.sframe_size(), config.step_size(),
+                                config.channel(), config.station_id(),
+                                config.ts());
+  }
+  OverlappedStreamReader reader(config.audio_source(), config.sframe_size(),
+                                config.buffer_read());
+  std::vector<sample_t> sample_buffer = reader.init_buffer();
+
+  while (true) {
+    std::span<sample_t> samples = reader.read_samples(sample_buffer);
+    if (samples.size() < config.sframe_size()) {
+      break;
+    }
+    for (size_t i = 0; i < config.offsets().size(); i++) {
+      fingerprints.clear();
+      fingerprinters[i].get_fingerprints(samples.subspan(config.offsets()[i]),
+                                         fingerprints);
+      for (auto &fingerprint : fingerprints) {
+        producer.produce(dump_fingerprint(fingerprint), fingerprint.station_id,
+                         config.fingerprint_topic());
+      }
+    }
+  }
+
+  producer.flush();
+
+  return 0;
+}
