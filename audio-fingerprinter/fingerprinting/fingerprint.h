@@ -13,11 +13,8 @@
 typedef struct {
   std::string hash_1;
   std::string hash_2;
-  int org_ts;
   int ts;
   int offset;
-  std::string channel;
-  std::string station_id;
 } fingerprint_t;
 
 class FingerprintLogger {
@@ -31,19 +28,13 @@ class FingerprintLogger {
 };
 
 class Fingerprinter {
- private:
-  bool initialized_ = false;
-
  protected:
   int sframe_size_;
   int step_size_;
 
-  std::string station_id_;
-  std::string channel_;
   int ts_;
 
-  int last_freq_ = 0;
-  int last_t_ = 0;
+  std::optional<peak_t> last_peak_ = std::nullopt;
 
   std::vector<spec_t> spectrogram_;
   peaks_answer_t peaks_ans_{};
@@ -53,19 +44,18 @@ class Fingerprinter {
 
   std::optional<FingerprintLogger> logger_ = std::nullopt;
 
-  void peaks_to_fingerprints(
-      std::span<peak_t> peaks,
-      std::vector<fingerprint_t>&
-          fingerprints);  // TODO(kkrol): Separate peaks_to_fingerprints and
-                          // samples_to_fingerprints to 2 classes
-
  public:
-  Fingerprinter(int sframe_size, int step_size, std::string channel,
-                std::string station_id, int ts);
+  Fingerprinter(int sframe_size, int step_size, int ts);
 
   void get_fingerprints(std::span<const sample_t> samples,
                         std::vector<fingerprint_t>& fingerprints);
 };
 
-std::string dump_fingerprint(const fingerprint_t& hash);
+peak_t peaks_to_fingerprints(std::span<peak_t> peaks,
+                             std::vector<fingerprint_t>& fingerprints,
+                             int start_time, peak_t last_peak);
+
+std::string dump_fingerprint(const fingerprint_t& hash, int org_ts,
+                             const std::string& channel,
+                             const std::string& station_id);
 #endif  // FINGERPRINT_H

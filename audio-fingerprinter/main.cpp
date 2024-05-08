@@ -65,18 +65,16 @@ class StreamFingerprinterConfig {
   std::vector<int> offsets_;
 
  public:
-  inline const std::string &kafka_address() const { return kafka_address_; }
-  inline const std::string &audio_source() const { return audio_source_; }
-  inline const std::string &channel() const { return channel_; }
-  inline const std::string &station_id() const { return station_id_; }
-  inline const std::string &fingerprint_topic() const {
-    return fingerprint_topic_;
-  }
-  inline size_t sframe_size() const { return sframe_size_; }
-  inline int buffer_read() const { return buffer_read_; }
-  inline int ts() const { return ts_; }
-  inline int step_size() const { return step_size_; }
-  inline const std::vector<int> &offsets() const { return offsets_; }
+  const std::string &kafka_address() const { return kafka_address_; }
+  const std::string &audio_source() const { return audio_source_; }
+  const std::string &channel() const { return channel_; }
+  const std::string &station_id() const { return station_id_; }
+  const std::string &fingerprint_topic() const { return fingerprint_topic_; }
+  size_t sframe_size() const { return sframe_size_; }
+  int buffer_read() const { return buffer_read_; }
+  int ts() const { return ts_; }
+  int step_size() const { return step_size_; }
+  const std::vector<int> &offsets() const { return offsets_; }
 
   StreamFingerprinterConfig(int argc, char *argv[]) {  // NOLINT
     po::options_description desc("Allowed options");
@@ -220,7 +218,6 @@ int main(int argc, char *argv[]) {
   fingerprinters.reserve(config.offsets().size());
   for (size_t i = 0; i < config.offsets().size(); i++) {
     fingerprinters.emplace_back(config.sframe_size(), config.step_size(),
-                                config.channel(), config.station_id(),
                                 config.ts());
   }
   OverlappedStreamReader reader(config.audio_source(), config.sframe_size(),
@@ -237,8 +234,10 @@ int main(int argc, char *argv[]) {
       fingerprinters[i].get_fingerprints(samples.subspan(config.offsets()[i]),
                                          fingerprints);
       for (auto &fingerprint : fingerprints) {
-        producer.produce(dump_fingerprint(fingerprint), fingerprint.station_id,
-                         config.fingerprint_topic());
+        producer.produce(
+            dump_fingerprint(fingerprint, config.ts(), config.channel(),
+                             config.station_id()),
+            config.station_id(), config.fingerprint_topic());
       }
     }
   }
