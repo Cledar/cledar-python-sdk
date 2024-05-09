@@ -1,5 +1,7 @@
 #include "fingerprint.h"
 
+#include <spdlog/spdlog.h>
+
 #include <algorithm>
 #include <iostream>
 #include <nlohmann/json.hpp>
@@ -15,12 +17,10 @@ void FingerprintLogger::log_fingerprint(fingerprint_t &hash) {
                       << hash.ts << "," << hash.offset << ",10,kim"
                       << std::endl;
     if (fingerprint_sink_.fail()) {
-      std::cerr << "Error writing to fingerprint file"
-                << std::endl;  // TODO(kkrol): Change to logging lib
+      SPDLOG_ERROR("Error writing to fingerprint file");
     }
   } else {
-    std::cerr << "Fingerprint file is not open"
-              << std::endl;  // TODO(kkrol): Change to logging lib
+    SPDLOG_WARN("Fingerprint file is not open");
   }
 }
 

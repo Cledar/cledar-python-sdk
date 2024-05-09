@@ -1,5 +1,7 @@
 #include "spectrogram.h"
 
+#include <spdlog/spdlog.h>
+
 #include <cmath>
 #include <iostream>
 
@@ -8,13 +10,11 @@ SpectrogramLogger::SpectrogramLogger(std::string file)
 
 void SpectrogramLogger::log_spectrogram(std::span<spec_t> spectrogram) {
   if (!spectrogram_sink_) {
-    std::cerr << "Spectrogram file is not open"
-              << std::endl;  // TODO(kkrol): Change to logging lib
+    SPDLOG_ERROR("Spectrogram file is not open");
   } else {
     if (fwrite(spectrogram.data(), sizeof(spec_t), spectrogram.size(),
                spectrogram_sink_.get()) < spectrogram.size()) {
-      std::cerr << "Error writing to spectrogram file"
-                << std::endl;  // TODO(kkrol): Change to logging lib
+      SPDLOG_WARN("Error writing to spectrogram file");
     }
   }
 }
@@ -30,6 +30,7 @@ SpectrogramCalculator::SpectrogramCalculator(int frame_size)
   // originally FFTW_ESTIMATE, MEASURE should initialize longer, but run faster
 
   if (!fftw_out_ || !fftw_plan_) {
+    SPDLOG_CRITICAL("Failed to allocate memory for FFTW");
     throw std::bad_alloc();
   }
 

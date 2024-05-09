@@ -1,5 +1,7 @@
 #include "peaks.h"
 
+#include <spdlog/spdlog.h>
+
 #include <iostream>
 
 namespace {
@@ -11,13 +13,11 @@ PeakLogger::PeakLogger(std::string file)
 
 void PeakLogger::log_peaks(std::span<peak_t> peaks_ans) {
   if (!peaks_sink_) {
-    std::cerr << "Peak file is not open"
-              << std::endl;  // TODO(kkrol): Change to logging lib
+    SPDLOG_ERROR("Peak file is not open");
   } else {
     if (fwrite(peaks_ans.data(), sizeof(peak_t), peaks_ans.size(),
                peaks_sink_.get()) < peaks_ans.size()) {
-      std::cerr << "Error writing to peak file"
-                << std::endl;  // TODO(kkrol): Change to logging lib
+      SPDLOG_WARN("Error writing to peak file");
     }
   }
 }

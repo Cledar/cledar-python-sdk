@@ -1,9 +1,12 @@
 # project('libfingerprint', 'cpp', default_options: ['cpp_std=c++23'])
 
+spdlog = subproject('spdlog')
+
 lib_deps = [
     dependency('fftw3'),
     dependency('fftw3f'),
     dependency('nlohmann_json'),
+    spdlog.get_variable('spdlog_dep'),
 ]
 
 fingerprint_lib = library(
@@ -20,6 +23,7 @@ fingerprint_lib = library(
     ],
     dependencies: lib_deps,
 )
+
 
 fingerprint_dep = declare_dependency(
     include_directories: include_directories('.'),
