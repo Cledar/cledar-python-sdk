@@ -10,8 +10,9 @@
 #include <string>
 
 #include "fingerprint.h"
+#include "utils/kafka_workers.h"
 
-constexpr const char *DEFAULT_TOPIC = "fingerprint";
+constexpr const char *DEFAULT_OUTPUT_TOPIC = "fingerprint";
 const std::string FFMPEG_CMD("ffmpeg ");
 const std::string INPUT_FLAG("-i ");
 const std::string OUTPUT_FORMAT(" -f s16le -acodec pcm_s16le -ac 1 pipe:1");
@@ -22,55 +23,6 @@ const std::string FFMPEG_VERBOSITY(" -loglevel warning");
 #endif
 
 namespace po = boost::program_options;
-
-class KafkaProducer {
- private:
-  std::unique_ptr<RdKafka::Producer> producer;
-
- public:
-  explicit KafkaProducer(const std::string &brokers) {
-    std::string errstr;
-    auto conf = std::unique_ptr<RdKafka::Conf>(
-        RdKafka::Conf::create(RdKafka::Conf::CONF_GLOBAL));
-
-    if (!conf) {
-      SPDLOG_ERROR("Failed to create global Kafka configuration");
-      throw std::ios_base::failure(
-          "Failed to create global Kafka configuration");
-    }
-    if (conf->set("bootstrap.servers", brokers, errstr) !=
-        RdKafka::Conf::CONF_OK) {
-      SPDLOG_ERROR("Failed to set Kafka brokers: {}", errstr);
-      throw std::ios_base::failure("Failed to set Kafka brokers: " + errstr);
-    }
-
-    producer = std::unique_ptr<RdKafka::Producer>(
-        RdKafka::Producer::create(conf.get(), errstr));
-    if (!producer) {
-      SPDLOG_ERROR("Failed to create Kafka producer: {}", errstr);
-      throw std::ios_base::failure("Failed to create Kafka producer: " +
-                                   errstr);
-    }
-  }
-
-  void produce(std::string message, const std::string key,
-               const std::string &topic) {
-    RdKafka::ErrorCode resp = producer->produce(
-        topic, RdKafka::Topic::PARTITION_UA, RdKafka::Producer::RK_MSG_COPY,
-        message.data(),  // TODO(kkrol): Should it be c_str? same in key
-        message.size(), key.data(), key.size(),
-        0,  // TODO(kkrol): 0 timestamp?
-        nullptr, nullptr);
-
-    if (resp != RdKafka::ERR_NO_ERROR) {
-      SPDLOG_WARN("Failed to produce Kafka message: {}",
-                  RdKafka::err2str(resp));
-    }
-  }
-  void flush() {
-    producer->flush(MAGIC_5000);  // TODO(kkrol): choose not random value
-  }
-};
 
 class StreamFingerprinterConfig {
  protected:
@@ -116,7 +68,7 @@ class StreamFingerprinterConfig {
         "station-id", po::value<std::string>(&station_id_), "Station ID")(
         "fingerprint-topic",
           po::value<std::string>(&fingerprint_topic_)
-              ->default_value(DEFAULT_TOPIC),
+              ->default_value(DEFAULT_OUTPUT_TOPIC),
           "Topic on Kafka to send fingerprints to");
     // clang-format on
     po::positional_options_description positionalOptions;
