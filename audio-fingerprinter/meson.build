@@ -25,3 +25,9 @@ executable(
   ['main.cpp'],
   dependencies: [fingerprint_dep, af_dep],
 )
+
+executable(
+  'ambinet-audio-fingerprint-decoder',
+  ['prosumer.cpp'],
+  dependencies: [fingerprint_dep, af_dep],
+)
