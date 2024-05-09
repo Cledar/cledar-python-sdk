@@ -1,4 +1,8 @@
+#define SPDLOG_ACTIVE_LEVEL SPDLOG_LEVEL_TRACE
+
 #include <librdkafka/rdkafkacpp.h>
+#include <spdlog/fmt/ranges.h>
+#include <spdlog/spdlog.h>
 
 #include <algorithm>
 #include <boost/program_options.hpp>
@@ -28,12 +32,24 @@ class KafkaProducer {
     std::string errstr;
     auto conf = std::unique_ptr<RdKafka::Conf>(
         RdKafka::Conf::create(RdKafka::Conf::CONF_GLOBAL));
-    conf->set("bootstrap.servers", brokers, errstr);
+
+    if (!conf) {
+      SPDLOG_ERROR("Failed to create global Kafka configuration");
+      throw std::ios_base::failure(
+          "Failed to create global Kafka configuration");
+    }
+    if (conf->set("bootstrap.servers", brokers, errstr) !=
+        RdKafka::Conf::CONF_OK) {
+      SPDLOG_ERROR("Failed to set Kafka brokers: {}", errstr);
+      throw std::ios_base::failure("Failed to set Kafka brokers: " + errstr);
+    }
 
     producer = std::unique_ptr<RdKafka::Producer>(
         RdKafka::Producer::create(conf.get(), errstr));
     if (!producer) {
-      throw std::ios_base::failure("Failed to create producer: " + errstr);
+      SPDLOG_ERROR("Failed to create Kafka producer: {}", errstr);
+      throw std::ios_base::failure("Failed to create Kafka producer: " +
+                                   errstr);
     }
   }
 
@@ -47,8 +63,8 @@ class KafkaProducer {
         nullptr, nullptr);
 
     if (resp != RdKafka::ERR_NO_ERROR) {
-      std::cerr << "Failed to produce message: " << RdKafka::err2str(resp)
-                << std::endl;  // TODO(kkrol): add spdlog
+      SPDLOG_WARN("Failed to produce Kafka message: {}",
+                  RdKafka::err2str(resp));
     }
   }
   void flush() {
@@ -119,41 +135,45 @@ class StreamFingerprinterConfig {
 
   void check_arguments(po::variables_map &vm) {
     if (vm.count("kafka-address") == 0) {
+      SPDLOG_ERROR("Kafka broker address is required");
       throw po::invalid_option_value(
           "Kafka broker address is required");  // TODO(kkrol): Make it optional
                                                 // but add serious log if not
                                                 // provided
     }
     if (vm.count("audio-source") == 0) {
-      throw po::invalid_option_value("Audio source file is required");
+      SPDLOG_ERROR("Audio source is required");
+      throw po::invalid_option_value("Audio source is required");
     }
     if (vm.count("channel") == 0) {
+      SPDLOG_DEBUG("Channel not provided. Using audio source as channel");
       channel_ = audio_source_;
     }
     if (vm.count("station-id") == 0) {
+      SPDLOG_DEBUG("Station ID not provided. Using audio source as station ID");
       station_id_ = audio_source_;
     }
     if (vm.count("buffer-size") == 0) {
+      SPDLOG_DEBUG("Buffer size not provided. Using {}x sframe size",
+                   READ_BUFFER_MULT);
       buffer_read_ = static_cast<int>(sframe_size_) * READ_BUFFER_MULT;
     }
     if (buffer_read_ % step_size_ != 0) {
+      SPDLOG_ERROR("Buffer read must be multiple of step size");
       throw po::invalid_option_value(
           "Buffer read must be multiple of step size");
     }
     if (offsets_.empty()) {
+      SPDLOG_DEBUG("Offsets not provided. Using 0 and step size / 2");
       offsets_ = {0, step_size_ / 2};
     }
 
-    // TODO(kkrol): spdlog::INFO/DEBUG
-    // std::cerr << kafka_address_ << " " << audio_source_ << " " <<
-    // sframe_size_
-    //           << " " << buffer_read_ << " " << step_size_ << " " <<
-    //           station_id_
-    //           << " " << channel_ << std::endl;
-    // for (auto offset : offsets_) {
-    //   std::cerr << offset << " ";
-    // }
-    // std::cerr << std::endl;
+    SPDLOG_INFO(
+        "Config:\n Kafka Address: {}\n Audio Source: {}\n sframe size: {}\n "
+        "buffer size: {}\n step size: {}\n Station ID: {}\n Channel: {}\n "
+        "Topic for Fingerprints: {}\n Initial Timestamp: {}\n Offsets: {}",
+        kafka_address_, audio_source_, sframe_size_, buffer_read_, step_size_,
+        station_id_, channel_, fingerprint_topic_, ts_, offsets_);
   }
 };
 
@@ -176,7 +196,8 @@ class OverlappedStreamReader {
                  OUTPUT_FORMAT),
         pipe_(popen(command_.c_str(), "r"), &pclose) {
     if (!pipe_) {
-      throw std::ios_base::failure("Error opening pipe");
+      SPDLOG_CRITICAL("Error opening ffmpeg pipe");
+      throw std::ios_base::failure("Error opening ffmpeg pipe");
     }
   }
 
@@ -185,7 +206,8 @@ class OverlappedStreamReader {
     size_t n_samples_read =
         fread(sample_buffer.data(), sizeof(sample_t), carry_over_, pipe_.get());
     if (n_samples_read != carry_over_) {
-      throw std::ios_base::failure("Initial read from pipe too small");
+      SPDLOG_WARN("Initial read too small. {} samples read; expected {}",
+                  n_samples_read, carry_over_);
     }
     return sample_buffer;
   }
@@ -199,16 +221,29 @@ class OverlappedStreamReader {
     requires_shift_ = true;
     if (n_samples_read == 0) {
       if (feof(pipe_.get())) {
-        std::cerr << "EOF Reached";
+        SPDLOG_INFO("ffmpeg reached EOF - shutting down");
       } else if (ferror(pipe_.get())) {
-        throw std::ios_base::failure("Error reading from pipe");
+        SPDLOG_CRITICAL("Failed reading from ffmpeg pipe");
+        throw std::ios_base::failure("Failed reading from ffmpeg pipe");
       }
     }
     return std::span(sample_buffer).first(n_samples_read + carry_over_);
   }
 };
 
+namespace {
+void set_logging_level() {  // TODO(kkrol): loading log levels from argv or
+                            // environment var
+#ifdef _DEBUG
+  spdlog::set_level(spdlog::level::debug);
+#else
+  spdlog::set_level(spdlog::level::info);
+#endif
+}
+}  // namespace
+
 int main(int argc, char *argv[]) {
+  set_logging_level();
   StreamFingerprinterConfig config(argc, argv);
   KafkaProducer producer(config.kafka_address());
 
