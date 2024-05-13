@@ -5,7 +5,6 @@
 #include <algorithm>
 #include <cmath>
 #include <iostream>
-#include <nlohmann/json.hpp>
 
 FingerprintLogger::FingerprintLogger(std::string fingerprint_file)
     : fingerprint_sink_(fingerprint_file) {
@@ -102,17 +101,11 @@ void Fingerprinter::get_fingerprints(std::span<const sample_t> samples,
   }
 }
 
-std::string dump_fingerprint(const fingerprint_t &hash, int org_ts,
-                             const std::string &channel,
-                             const std::string &station_id) {
-  nlohmann::json json_hash;
-  json_hash["hash_1"] = hash.hash_1;
-  json_hash["hash_2"] = hash.hash_2;
-  json_hash["org_ts"] = org_ts;
-  json_hash["ts"] = hash.ts;
-  json_hash["offset"] = hash.offset;
-  json_hash["channel"] = channel;
-  json_hash["station_id"] = station_id;
-
-  return json_hash.dump();
+std::string dump_fingerprint(const fingerprint_t &hash,
+                             nlohmann::json basic_info) {
+  basic_info["hash_1"] = hash.hash_1;
+  basic_info["hash_2"] = hash.hash_2;
+  basic_info["ts"] = hash.ts;
+  basic_info["offset"] = hash.offset;
+  return basic_info.dump();
 }
