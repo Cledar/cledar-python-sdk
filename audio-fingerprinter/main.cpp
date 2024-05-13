@@ -197,6 +197,10 @@ void set_logging_level() {  // TODO(kkrol): loading log levels from argv or
 int main(int argc, char *argv[]) {
   set_logging_level();
   StreamFingerprinterConfig config(argc, argv);
+  nlohmann::json basic_info;
+  basic_info["org_ts"] = config.ts();
+  basic_info["channel"] = config.channel();
+  basic_info["station_id"] = config.station_id();
   KafkaProducer producer(config.kafka_address());
 
   std::vector<fingerprint_t> fingerprints;
@@ -221,10 +225,8 @@ int main(int argc, char *argv[]) {
       fingerprinters[i].get_fingerprints(samples.subspan(config.offsets()[i]),
                                          fingerprints);
       for (auto &fingerprint : fingerprints) {
-        producer.produce(
-            dump_fingerprint(fingerprint, config.ts(), config.channel(),
-                             config.station_id()),
-            config.station_id(), config.fingerprint_topic());
+        producer.produce(dump_fingerprint(fingerprint, basic_info),
+                         config.station_id(), config.fingerprint_topic());
       }
     }
   }

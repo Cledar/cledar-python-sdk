@@ -35,8 +35,7 @@ class KafkaProducer {
     // produce is run for some time
     RdKafka::ErrorCode resp = producer_->produce(
         topic, RdKafka::Topic::PARTITION_UA, RdKafka::Producer::RK_MSG_COPY,
-        message.data(),  // TODO(kkrol): Should it be c_str? same in key
-        message.size(), key.data(), key.size(),
+        message.data(), message.size(), key.data(), key.size(),
         0,  // TODO(kkrol): 0 timestamp?
         nullptr, nullptr);
 

@@ -3,6 +3,7 @@
 
 #include <fstream>
 #include <memory>
+#include <nlohmann/json.hpp>
 #include <optional>
 #include <span>
 #include <vector>
@@ -55,7 +56,6 @@ peak_t peaks_to_fingerprints(std::span<peak_t> peaks,
                              std::vector<fingerprint_t>& fingerprints,
                              int start_time, peak_t last_peak);
 
-std::string dump_fingerprint(const fingerprint_t& hash, int org_ts,
-                             const std::string& channel,
-                             const std::string& station_id);
+std::string dump_fingerprint(const fingerprint_t& hash,
+                             nlohmann::json basic_info);
 #endif  // FINGERPRINT_H
