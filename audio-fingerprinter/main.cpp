@@ -24,6 +24,16 @@ const std::string FFMPEG_VERBOSITY(" -loglevel warning");
 
 namespace po = boost::program_options;
 
+namespace {
+void set_default_logging_level() {
+#ifdef _DEBUG
+  spdlog::set_level(spdlog::level::debug);
+#else
+  spdlog::set_level(spdlog::level::info);
+#endif
+}
+}  // namespace
+
 class StreamFingerprinterConfig {
  protected:
   std::string kafka_address_, audio_source_, station_id_, channel_,
@@ -69,6 +79,9 @@ class StreamFingerprinterConfig {
         "fingerprint-topic",
           po::value<std::string>(&fingerprint_topic_)
               ->default_value(DEFAULT_OUTPUT_TOPIC),
+          "Topic on Kafka to send fingerprints to")(
+        "spdlog-level",
+          po::value<std::string>(),
           "Topic on Kafka to send fingerprints to");
     // clang-format on
     po::positional_options_description positionalOptions;
@@ -86,12 +99,28 @@ class StreamFingerprinterConfig {
   }
 
   void check_arguments(po::variables_map &vm) {
+    if (vm.count("spdlog-level") == 0) {
+      set_default_logging_level();
+      SPDLOG_INFO("Log level set to default - {}",
+                  spdlog::level::to_string_view(spdlog::get_level()));
+    } else {
+      spdlog::set_level(
+          spdlog::level::from_str(vm["spdlog-level"].as<std::string>()));
+      if (spdlog::get_level() == spdlog::level::off &&
+          vm["spdlog-level"].as<std::string>() != "off") {
+        set_default_logging_level();
+        SPDLOG_INFO("Unknown log level {}; set to default - {}",
+                    vm["spdlog-level"].as<std::string>(),
+                    spdlog::level::to_string_view(spdlog::get_level()));
+      } else {
+        SPDLOG_INFO("Log level set to {}",
+                    spdlog::level::to_string_view(spdlog::get_level()));
+      }
+    }
+
     if (vm.count("kafka-address") == 0) {
       SPDLOG_ERROR("Kafka broker address is required");
-      throw po::invalid_option_value(
-          "Kafka broker address is required");  // TODO(kkrol): Make it optional
-                                                // but add serious log if not
-                                                // provided
+      throw po::invalid_option_value("Kafka broker address is required");
     }
     if (vm.count("audio-source") == 0) {
       SPDLOG_ERROR("Audio source is required");
@@ -183,25 +212,15 @@ class OverlappedStreamReader {
   }
 };
 
-namespace {
-void set_logging_level() {  // TODO(kkrol): loading log levels from argv or
-                            // environment var
-#ifdef _DEBUG
-  spdlog::set_level(spdlog::level::debug);
-#else
-  spdlog::set_level(spdlog::level::info);
-#endif
-}
-}  // namespace
-
 int main(int argc, char *argv[]) {
-  set_logging_level();
+  set_default_logging_level();
   StreamFingerprinterConfig config(argc, argv);
   nlohmann::json basic_info;
   basic_info["org_ts"] = config.ts();
   basic_info["channel"] = config.channel();
   basic_info["station_id"] = config.station_id();
-  KafkaProducer producer(config.kafka_address());
+  KafkaTopicProducer producer(config.kafka_address(),
+                              config.fingerprint_topic());
 
   std::vector<fingerprint_t> fingerprints;
   fingerprints.reserve(PFRAME_CELLS * MAGIC_100);
@@ -226,7 +245,7 @@ int main(int argc, char *argv[]) {
                                          fingerprints);
       for (auto &fingerprint : fingerprints) {
         producer.produce(dump_fingerprint(fingerprint, basic_info),
-                         config.station_id(), config.fingerprint_topic());
+                         config.station_id());
       }
     }
   }
