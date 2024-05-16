@@ -82,10 +82,16 @@ class ProsumerConfig {
 std::span<peak_t> retrieve_peaks(nlohmann::json &payload_parsed,
                                  const std::string &peaks_key,
                                  std::span<peak_t> peaks_buff) {
-  auto compressed_peaks =
-      payload_parsed[peaks_key]
-          .get<std::vector<int>>();  // TODO(kkrol): I think it's ok when non
-                                     // vector here (or empty field), but tbd
+  std::vector<int> compressed_peaks;
+  try {
+    compressed_peaks = payload_parsed.at(peaks_key).get<std::vector<int>>();
+  } catch (const nlohmann::json::out_of_range &e) {
+    SPDLOG_WARN("The key {} is not stored in the object: [Exception ID:{}] {}",
+                peaks_key, e.id, e.what());
+  } catch (const nlohmann::json::type_error &e) {
+    SPDLOG_WARN("Received JSON value is not an object: [Exception ID:{}] {}",
+                e.id, e.what());
+  }
   if (compressed_peaks.size() > peaks_buff.size()) {
     SPDLOG_WARN("Too many peaks in the payload, dropping excess.");
   }
@@ -104,7 +110,7 @@ std::span<peak_t> retrieve_peaks(nlohmann::json &payload_parsed,
 int main(int argc, char *argv[]) {
   std::signal(SIGINT, signal_handler);
   ProsumerConfig config(argc, argv);
-  KafkaProducer producer(config.kafka_address());
+  KafkaTopicProducer producer(config.kafka_address(), config.output_topic());
   KafkaConsumer consumer(config.kafka_address(), config.consumer_group(),
                          config.input_topic());
 
@@ -126,7 +132,7 @@ int main(int argc, char *argv[]) {
       (void)peaks_to_fingerprints(payload_peaks, fingerprints, 0, {1, 0});
       for (auto &fingerprint : fingerprints) {
         producer.produce(dump_fingerprint(fingerprint, payload_parsed),
-                         *message->key(), config.output_topic());
+                         *message->key());
       }
       break;
     }

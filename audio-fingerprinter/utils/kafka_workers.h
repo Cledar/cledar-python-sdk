@@ -3,7 +3,7 @@
 #define KAFKA_WORKERS_H
 
 #include <librdkafka/rdkafkacpp.h>
-// #include <spdlog/spdlog.h>
+#include <spdlog/spdlog.h>
 
 #include <iostream>
 #include <memory>
@@ -17,9 +17,10 @@
  * The KafkaProducer class is responsible for producing messages to a Kafka
  * topic. It uses the RdKafka library to interact with Kafka.
  */
-class KafkaProducer {
+class KafkaTopicProducer {
  private:
   std::unique_ptr<RdKafka::Producer> producer_;
+  std::unique_ptr<RdKafka::Topic> topic_;
 
  public:
   /**
@@ -28,17 +29,35 @@ class KafkaProducer {
    * @param brokers The string of broker addresses in the format "host:port".
    *                Multiple brokers can be provided by separating them with
    *                commas (e.g., "host1:port1,host2:port2").
+   * @param topic The Kafka topic to which messages will be sent.
    **/
-  explicit KafkaProducer(const std::string &brokers) {
+  KafkaTopicProducer(const std::string &brokers, const std::string &topic) {
     std::string errstr;
+
     auto conf = std::unique_ptr<RdKafka::Conf>(
         RdKafka::Conf::create(RdKafka::Conf::CONF_GLOBAL));
-    conf->set("bootstrap.servers", brokers, errstr);
+
+    if (conf->set("bootstrap.servers", brokers, errstr) !=
+        RdKafka::Conf::CONF_OK) {
+      SPDLOG_ERROR("Failed to set config bootstrap.servers: {}", errstr);
+      throw std::runtime_error("Failed to set config bootstrap.servers: " +
+                               errstr);
+    }
 
     producer_ = std::unique_ptr<RdKafka::Producer>(
         RdKafka::Producer::create(conf.get(), errstr));
     if (!producer_) {
+      SPDLOG_ERROR("Failed to create producer: {}", errstr);
       throw std::ios_base::failure("Failed to create producer: " + errstr);
+    }
+
+    auto topic_conf = std::unique_ptr<RdKafka::Conf>(
+        RdKafka::Conf::create(RdKafka::Conf::CONF_TOPIC));
+    topic_ = std::unique_ptr<RdKafka::Topic>(RdKafka::Topic::create(
+        producer_.get(), topic, topic_conf.get(), errstr));
+    if (!topic_) {
+      SPDLOG_ERROR("Failed to create topic: {}", errstr);
+      throw std::runtime_error("Failed to create topic: " + errstr);
     }
   }
 
@@ -50,27 +69,25 @@ class KafkaProducer {
    *
    * @param message The message to be sent.
    * @param key The key associated with the message.
-   * @param topic The Kafka topic to which the message will be sent.
    */
-  void produce(std::string message, const std::string key,
-               const std::string &topic) {
-    // TODO(kkrol): Add producer_->poll(0) in regular intervals, even if no
-    // produce is run for some time
-    RdKafka::ErrorCode resp = producer_->produce(
-        topic, RdKafka::Topic::PARTITION_UA, RdKafka::Producer::RK_MSG_COPY,
-        message.data(), message.size(), key.data(), key.size(),
-        0,  // TODO(kkrol): 0 timestamp?
-        nullptr, nullptr);
+  void produce(std::string message, const std::string &key) {
+    producer_->poll(0);  // Trigger non-blocking delivery report callbacks (to
+                         // free the report queue)
+    RdKafka::ErrorCode resp =
+        producer_->produce(topic_.get(), RdKafka::Topic::PARTITION_UA,
+                           RdKafka::Producer::RK_MSG_COPY, &message[0],
+                           message.size(), &key, nullptr);
 
     if (resp != RdKafka::ERR_NO_ERROR) {
-      // spdlog::warn("Failed to produce message: {}", RdKafka::err2str(resp));
+      SPDLOG_WARN("Failed to produce message: {}", RdKafka::err2str(resp));
     }
   }
+
   /**
    * Flushes the Kafka producer.
    * This function ensures that all pending messages are sent to the Kafka
-   * broker before returning. It blocks until all messages are successfully sent
-   * or the specified timeout is reached.
+   * broker before returning. It blocks until all messages are successfully
+   * sent or the specified timeout is reached.
    */
   void flush() { producer_->flush(PRODUCER_FLUSH_TIMEOUT_MS); }
 };
@@ -90,8 +107,8 @@ class KafkaConsumer {
    * @brief Constructs a KafkaConsumer object.
    *
    * This constructor initializes a KafkaConsumer object with the specified
-   * brokers, group ID, and topic. It creates a Kafka consumer and subscribes to
-   * the specified topic.
+   * brokers, group ID, and topic. It creates a Kafka consumer and subscribes
+   * to the specified topic.
    *
    * @param brokers The list of Kafka brokers to connect to.
    * @param group_id The ID of the consumer group.
@@ -104,16 +121,32 @@ class KafkaConsumer {
     std::string errstr;
     auto conf = std::unique_ptr<RdKafka::Conf>(
         RdKafka::Conf::create(RdKafka::Conf::CONF_GLOBAL));
-    conf->set("bootstrap.servers", brokers, errstr);
-    conf->set("group.id", group_id, errstr);  // TODO(kkrol): Error handling
+    if (conf->set("bootstrap.servers", brokers, errstr) !=
+        RdKafka::Conf::CONF_OK) {
+      SPDLOG_ERROR("Failed to set config bootstrap.servers: {}", errstr);
+      throw std::runtime_error("Failed to set config bootstrap.servers: " +
+                               errstr);
+    }
+    if (conf->set("group.id", group_id, errstr) != RdKafka::Conf::CONF_OK) {
+      SPDLOG_ERROR("Failed to set config group.id: {}", errstr);
+      throw std::runtime_error("Failed to set config group.id: " + errstr);
+    }
 
     consumer_ = std::unique_ptr<RdKafka::KafkaConsumer>(
         RdKafka::KafkaConsumer::create(conf.get(), errstr));
     if (!consumer_) {
+      SPDLOG_CRITICAL("Failed to create consumer: {}", errstr);
       throw std::ios_base::failure("Failed to create consumer: " + errstr);
     }
 
-    consumer_->subscribe({topic});  // TODO(kkrol): Error handling
+    RdKafka::ErrorCode resp = consumer_->subscribe({topic});
+
+    if (resp != RdKafka::ERR_NO_ERROR) {
+      SPDLOG_CRITICAL("Failed to subscribe to topic: {}",
+                      RdKafka::err2str(resp));
+      throw std::runtime_error("Failed to subscribe to topic: " +
+                               RdKafka::err2str(resp));
+    }
   }
   /**
    * @brief Destructor for the KafkaConsumer class.
@@ -125,9 +158,9 @@ class KafkaConsumer {
   /**
    * @brief Retrieves a message from the Kafka consumer.
    *
-   * This function retrieves a message from the Kafka consumer and returns it as
-   * a unique pointer to a `RdKafka::Message` object. If there are no messages
-   * available or an error occurs, a null pointer is returned.
+   * This function retrieves a message from the Kafka consumer and returns it
+   * as a unique pointer to a `RdKafka::Message` object. If there are no
+   * messages available or an error occurs, a null pointer is returned.
    *
    * @return A unique pointer to a `RdKafka::Message` object if a message is
    * successfully retrieved, or nullptr otherwise.
@@ -137,6 +170,8 @@ class KafkaConsumer {
         consumer_->consume(AWAIT_MSG_TIMEOUT_MS));
     if (message->err() == RdKafka::ERR_NO_ERROR) {
       return message;
+    } else if (message->err() != RdKafka::ERR__TIMED_OUT) {
+      SPDLOG_WARN("Failed to consume message: {}", message->errstr());
     }
     return nullptr;
   }
