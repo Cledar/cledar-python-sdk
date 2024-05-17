@@ -22,7 +22,7 @@ af_dep = [
 
 executable(
   'audio_fingerprinter',
-  ['main.cpp'],
+  ['audio_fingerprinter.cpp'],
   dependencies: [fingerprint_dep, af_dep],
 )
 
