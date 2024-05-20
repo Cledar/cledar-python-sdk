@@ -64,13 +64,13 @@ class FingerprintLogger {
    * @brief Logs a single fingerprint to the fingerprint file.
    * @param hash The fingerprint to be logged.
    */
-  void log_fingerprint(fingerprint_t& hash);
+  void log_fingerprint(fingerprint_t &hash);
 
   /**
    * @brief Logs a collection of fingerprints to the fingerprint file.
    * @param fingerprints The collection of fingerprints to be logged.
    */
-  void log_fingerprints(std::vector<fingerprint_t>& fingerprints);
+  void log_fingerprints(std::vector<fingerprint_t> &fingerprints);
 };
 
 /**
@@ -129,7 +129,7 @@ class Fingerprinter {
    * @param fingerprints The vector to store the generated fingerprints.
    */
   void get_fingerprints(std::span<const sample_t> samples,
-                        std::vector<fingerprint_t>& fingerprints);
+                        std::vector<fingerprint_t> &fingerprints);
 };
 
 /**
@@ -142,7 +142,7 @@ class Fingerprinter {
  * @param last_peak The last peak processed before the first peak in the list.
  */
 peak_t peaks_to_fingerprints(std::span<peak_t> peaks,
-                             std::vector<fingerprint_t>& fingerprints,
+                             std::vector<fingerprint_t> &fingerprints,
                              int start_time, peak_t last_peak);
 
 /**
@@ -156,6 +156,6 @@ peak_t peaks_to_fingerprints(std::span<peak_t> peaks,
  *
  * @return A JSON string representation of the fingerprint.
  */
-std::string dump_fingerprint(const fingerprint_t& hash,
+std::string dump_fingerprint(const fingerprint_t &hash,
                              nlohmann::json basic_info);
 #endif  // FINGERPRINT_H
