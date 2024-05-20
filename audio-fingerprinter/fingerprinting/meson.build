@@ -29,3 +29,19 @@ fingerprint_dep = declare_dependency(
     include_directories: include_directories('.'),
     link_with: fingerprint_lib,
 )
+
+gtest_proj = subproject('gtest')
+gtest_main_dep = gtest_proj.get_variable('gtest_main_dep')
+gmock_dep = gtest_proj.get_variable('gmock_dep')
+
+test_fingerprint = executable(
+    'test_fingerprint',
+    'tests/test_fingerprint.cpp',
+    dependencies: [
+        fingerprint_dep,
+        gtest_main_dep,
+        gmock_dep,
+    ],
+)
+
+test('test_fingerprint', test_fingerprint)
