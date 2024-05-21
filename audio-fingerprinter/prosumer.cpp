@@ -10,74 +10,13 @@
 #include <string>
 
 #include "fingerprint.h"
+#include "utils/config.h"
 #include "utils/kafka_workers.h"
-
-constexpr const char *DEFAULT_OUTPUT_TOPIC = "ambient-audio-fingerprints";
-constexpr const char *DEFAULT_INPUT_TOPIC = "ambient-audio-fingerprints-raw";
-constexpr const char *DEFAULT_PEAKS_JSON_KEY = "channel1";
 
 namespace {
 volatile std::sig_atomic_t signal_status;
 void signal_handler(int signal) { signal_status = signal; }
 }  // namespace
-
-namespace po = boost::program_options;
-
-class ProsumerConfig {
- protected:
-  std::string kafka_address_, output_topic_, input_topic_, consumer_group_,
-      peaks_key_;
-
- public:
-  inline const std::string &kafka_address() const { return kafka_address_; }
-  inline const std::string &output_topic() const { return output_topic_; }
-  inline const std::string &input_topic() const { return input_topic_; }
-  inline const std::string &consumer_group() const { return consumer_group_; }
-  inline const std::string &peaks_key() const { return peaks_key_; }
-  ProsumerConfig(int argc, char *argv[]) {  // NOLINT
-    po::options_description desc("Allowed options");
-    // clang-format off
-    desc.add_options()(
-        "kafka-address", po::value<std::string>(&kafka_address_),
-          "Kafka broker address")(
-        "output-topic",
-          po::value<std::string>(&output_topic_)
-              ->default_value(DEFAULT_OUTPUT_TOPIC),
-          "Topic on Kafka to send parsed fingerprints to")(
-        "input-topic",
-          po::value<std::string>(&input_topic_)
-              ->default_value(DEFAULT_INPUT_TOPIC),
-          "Topic on Kafka from which to read raw fingerprints")(
-        "consumer-group", po::value<std::string>(&consumer_group_),
-          "Name of consumer group of a given consumer")(
-        "peaks-key",
-          po::value<std::string>(&peaks_key_)
-              ->default_value(DEFAULT_PEAKS_JSON_KEY),
-          "Name of the key in the JSON payload that contains peaks");
-    // clang-format on
-    po::variables_map vm;
-    po::store(po::command_line_parser(argc, argv).options(desc).run(), vm);
-    po::notify(vm);
-
-    check_arguments(vm);
-
-    SPDLOG_INFO(
-        "Config:\n Kafka Address: {}\n Output Topic: {}\n Input Topic: {}\n"
-        "Consumer Group: {}",
-        kafka_address_, output_topic_, input_topic_, consumer_group_);
-  }
-
-  void check_arguments(po::variables_map &vm) {
-    if (vm.count("kafka-address") == 0) {
-      SPDLOG_ERROR("Kafka broker address is required");
-      throw po::invalid_option_value("Kafka broker address is required");
-    }
-    if (vm.count("consumer-group") == 0) {
-      SPDLOG_ERROR("Consumer group name is required");
-      throw po::invalid_option_value("Consumer group name is required");
-    }
-  }
-};
 
 std::span<peak_t> retrieve_peaks(nlohmann::json &payload_parsed,
                                  const std::string &peaks_key,
