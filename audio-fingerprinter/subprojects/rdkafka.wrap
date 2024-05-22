@@ -1,0 +1,14 @@
+[wrap-file]
+directory = librdkafka-2.3.0
+source_url = https://github.com/confluentinc/librdkafka/archive/v2.3.0.tar.gz
+source_filename = librdkafka-2.3.0.tar.gz
+source_hash = 2d49c35c77eeb3d42fa61c43757fcbb6a206daa560247154e60642bcdcc14d12
+patch_filename = rdkafka_2.3.0-1_patch.zip
+patch_url = https://wrapdb.mesonbuild.com/v2/rdkafka_2.3.0-1/get_patch
+patch_hash = ded8bb1b39e9b1bbe0c9f36e6ef912402da0a5335c6e7631718191d60b485102
+source_fallback_url = https://github.com/mesonbuild/wrapdb/releases/download/rdkafka_2.3.0-1/librdkafka-2.3.0.tar.gz
+wrapdb_version = 2.3.0-1
+
+[provide]
+rdkafka = rdkafka_dep
+rdkafka++ = rdkafkapp_dep

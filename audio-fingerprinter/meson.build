@@ -8,15 +8,15 @@ project(
 if get_option('debug')
   add_project_arguments('-D_DEBUG', language: 'cpp')
 endif
-# afdep = [dependency('fftw3'), dependency('fftw3f'), dependency('rdkafka'), dependency('rdkafka++'), dependency('nlohmann_json'), dependency('boost', modules:['program_options'])]
 
 subdir('fingerprinting')
 spdlog = subproject('spdlog')
+rdkafka = subproject('rdkafka')
 
 af_dep = [
-  dependency('rdkafka'),
-  dependency('rdkafka++'),
   dependency('boost', modules: ['program_options']),
+  rdkafka.get_variable('rdkafka_dep'),
+  rdkafka.get_variable('rdkafkapp_dep'),
   spdlog.get_variable('spdlog_dep'),
 ]
 
