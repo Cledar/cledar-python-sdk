@@ -86,6 +86,8 @@ void Fingerprinter::get_fingerprints(std::span<const sample_t> samples,
     if (!last_peak_) {
       last_peak_ = {std::max(peaks_read[0].freq, 0),
                     std::max(peaks_read[0].time, 0)};
+      // FIXME(kkrol): This is bug from original code - if last_peak's freq is 0
+      // then log of 0 is undefined
       peaks_read = peaks_read.subspan(1);
     }
     last_peak_ = peaks_to_fingerprints(peaks_read, fingerprints, ts_,
