@@ -24,68 +24,21 @@ void set_default_logging_level() {
 #endif  // _DEBUG
 }
 
-class StreamFingerprinterConfig {
+class CommonConfig {
  protected:
-  std::string kafka_address_, audio_source_, station_id_, channel_,
-      fingerprint_topic_;
-  size_t sframe_size_;
-  int buffer_read_, step_size_, ts_;
-  std::vector<int> offsets_;
+  std::string kafka_address_;
 
- public:
-  const std::string &kafka_address() const { return kafka_address_; }
-  const std::string &audio_source() const { return audio_source_; }
-  const std::string &channel() const { return channel_; }
-  const std::string &station_id() const { return station_id_; }
-  const std::string &fingerprint_topic() const { return fingerprint_topic_; }
-  size_t sframe_size() const { return sframe_size_; }
-  int buffer_read() const { return buffer_read_; }
-  int ts() const { return ts_; }
-  int step_size() const { return step_size_; }
-  const std::vector<int> &offsets() const { return offsets_; }
-
-  StreamFingerprinterConfig(int argc, char *argv[]) {  // NOLINT
+  po::options_description get_description() {
     po::options_description desc("Allowed options");
+
     // clang-format off
     desc.add_options()(
         "kafka-address", po::value<std::string>(&kafka_address_),
           "Kafka broker address")(
-        "audio-source", po::value<std::string>(&audio_source_),
-          "Audio source file")(
-        "sframe-size",
-          po::value<size_t>(&sframe_size_)->default_value(SFRAME_IN_SIZE),
-          "Number of samples in each fft frame")(
-        "buffer-size", po::value<int>(&buffer_read_),
-          "Read size to buffer (default 10x sframe size)")(
-        "offset", po::value<std::vector<int>>(&offsets_)->multitoken(),
-          "Offsets to add to the vector")(
-        "step-size",
-          po::value<int>(&step_size_)->default_value(SFRAME_IN_SIZE / 2),
-          "Distance between two sframes")(
-        "start-ts", po::value<int>(&ts_)->default_value(0),
-          "Initial timestamp")(
-        "channel", po::value<std::string>(&channel_), "Name of that channel")(
-        "station-id", po::value<std::string>(&station_id_), "Station ID")(
-        "fingerprint-topic",
-          po::value<std::string>(&fingerprint_topic_)
-              ->default_value(FINGERPRINTER_DEFAULT_OUTPUT_TOPIC),
-          "Topic on Kafka to send fingerprints to")(
-        "spdlog-level",
-          po::value<std::string>(),
-          "Topic on Kafka to send fingerprints to");
+        "spdlog-level", po::value<std::string>(),
+          "spdlog logging threshold level");
     // clang-format on
-    po::positional_options_description positionalOptions;
-    positionalOptions.add("audio-source", 1);
-
-    po::variables_map vm;
-    po::store(po::command_line_parser(argc, argv)
-                  .options(desc)
-                  .positional(positionalOptions)
-                  .run(),
-              vm);
-    po::notify(vm);
-
-    check_arguments(vm);
+    return desc;
   }
 
   void check_arguments(po::variables_map &vm) {
@@ -112,6 +65,48 @@ class StreamFingerprinterConfig {
       SPDLOG_ERROR("Kafka broker address is required");
       throw po::invalid_option_value("Kafka broker address is required");
     }
+  }
+
+ public:
+  const std::string &kafka_address() const { return kafka_address_; }
+};
+
+class StreamFingerprinterConfig : public CommonConfig {
+ protected:
+  std::string audio_source_, station_id_, channel_, fingerprint_topic_;
+  size_t sframe_size_;
+  int buffer_read_, step_size_, ts_;
+  std::vector<int> offsets_;
+  po::options_description get_description() {
+    po::options_description desc = CommonConfig::get_description();
+    // clang-format off
+    desc.add_options()(
+        "audio-source", po::value<std::string>(&audio_source_),
+          "Audio source file")(
+        "sframe-size",
+          po::value<size_t>(&sframe_size_)->default_value(SFRAME_IN_SIZE),
+          "Number of samples in each fft frame")(
+        "buffer-size", po::value<int>(&buffer_read_),
+          "Read size to buffer (default 10x sframe size)")(
+        "offset", po::value<std::vector<int>>(&offsets_)->multitoken(),
+          "Offsets to add to the vector")(
+        "step-size",
+          po::value<int>(&step_size_)->default_value(SFRAME_IN_SIZE / 2),
+          "Distance between two sframes")(
+        "start-ts", po::value<int>(&ts_)->default_value(0),
+          "Initial timestamp")(
+        "channel", po::value<std::string>(&channel_), "Name of that channel")(
+        "station-id", po::value<std::string>(&station_id_), "Station ID")(
+        "fingerprint-topic",
+          po::value<std::string>(&fingerprint_topic_)
+              ->default_value(FINGERPRINTER_DEFAULT_OUTPUT_TOPIC),
+          "Topic on Kafka to send fingerprints to");
+    // clang-format on
+    return desc;
+  }
+
+  void check_arguments(po::variables_map &vm) {
+    CommonConfig::check_arguments(vm);
     if (vm.count("audio-source") == 0) {
       SPDLOG_ERROR("Audio source is required");
       throw po::invalid_option_value("Audio source is required");
@@ -146,26 +141,43 @@ class StreamFingerprinterConfig {
         kafka_address_, audio_source_, sframe_size_, buffer_read_, step_size_,
         station_id_, channel_, fingerprint_topic_, ts_, offsets_);
   }
-};
-
-class ProsumerConfig {
- protected:
-  std::string kafka_address_, output_topic_, input_topic_, consumer_group_,
-      peaks_key_;
 
  public:
-  inline const std::string &kafka_address() const { return kafka_address_; }
-  inline const std::string &output_topic() const { return output_topic_; }
-  inline const std::string &input_topic() const { return input_topic_; }
-  inline const std::string &consumer_group() const { return consumer_group_; }
-  inline const std::string &peaks_key() const { return peaks_key_; }
-  ProsumerConfig(int argc, char *argv[]) {  // NOLINT
-    po::options_description desc("Allowed options");
+  const std::string &audio_source() const { return audio_source_; }
+  const std::string &channel() const { return channel_; }
+  const std::string &station_id() const { return station_id_; }
+  const std::string &fingerprint_topic() const { return fingerprint_topic_; }
+  size_t sframe_size() const { return sframe_size_; }
+  int buffer_read() const { return buffer_read_; }
+  int ts() const { return ts_; }
+  int step_size() const { return step_size_; }
+  const std::vector<int> &offsets() const { return offsets_; }
+
+  StreamFingerprinterConfig(int argc, char *argv[]) {  // NOLINT
+
+    po::options_description desc = get_description();
+    po::positional_options_description positionalOptions;
+    positionalOptions.add("audio-source", 1);
+
+    po::variables_map vm;
+    po::store(po::command_line_parser(argc, argv)
+                  .options(desc)
+                  .positional(positionalOptions)
+                  .run(),
+              vm);
+    po::notify(vm);
+
+    check_arguments(vm);
+  }
+};
+
+class ProsumerConfig : public CommonConfig {
+ protected:
+  std::string output_topic_, input_topic_, consumer_group_, peaks_key_;
+  po::options_description get_description() {
+    po::options_description desc = CommonConfig::get_description();
     // clang-format off
-    // TODO(kkrol): Add option for spdlog level
     desc.add_options()(
-        "kafka-address", po::value<std::string>(&kafka_address_),
-          "Kafka broker address")(
         "output-topic",
           po::value<std::string>(&output_topic_)
               ->default_value(PROSUMER_DEFAULT_OUTPUT_TOPIC),
@@ -181,6 +193,25 @@ class ProsumerConfig {
               ->default_value(DEFAULT_PEAKS_JSON_KEY),
           "Name of the key in the JSON payload that contains peaks");
     // clang-format on
+    return desc;
+  }
+
+  void check_arguments(po::variables_map &vm) {
+    CommonConfig::check_arguments(vm);
+    if (vm.count("consumer-group") == 0) {
+      SPDLOG_ERROR("Consumer group name is required");
+      throw po::invalid_option_value("Consumer group name is required");
+    }
+  }
+
+ public:
+  inline const std::string &output_topic() const { return output_topic_; }
+  inline const std::string &input_topic() const { return input_topic_; }
+  inline const std::string &consumer_group() const { return consumer_group_; }
+  inline const std::string &peaks_key() const { return peaks_key_; }
+
+  ProsumerConfig(int argc, char *argv[]) {  // NOLINT
+    po::options_description desc = get_description();
     po::variables_map vm;
     po::store(po::command_line_parser(argc, argv).options(desc).run(), vm);
     po::notify(vm);
@@ -191,17 +222,6 @@ class ProsumerConfig {
         "Config:\n Kafka Address: {}\n Output Topic: {}\n Input Topic: {}\n"
         "Consumer Group: {}",
         kafka_address_, output_topic_, input_topic_, consumer_group_);
-  }
-
-  void check_arguments(po::variables_map &vm) {
-    if (vm.count("kafka-address") == 0) {
-      SPDLOG_ERROR("Kafka broker address is required");
-      throw po::invalid_option_value("Kafka broker address is required");
-    }
-    if (vm.count("consumer-group") == 0) {
-      SPDLOG_ERROR("Consumer group name is required");
-      throw po::invalid_option_value("Consumer group name is required");
-    }
   }
 };
 

@@ -7,7 +7,7 @@
 
 namespace po = boost::program_options;
 
-TEST(ConfigTest, MinimalisticConfig) {
+TEST(FingerprinterConfigTest, MinimalisticConfig) {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wwrite-strings"
   // NOLINTBEGIN(clang-diagnostic-writable-strings)
@@ -33,7 +33,7 @@ TEST(ConfigTest, MinimalisticConfig) {
   EXPECT_EQ(spdlog::get_level(), spdlog::level::debug);
 }
 
-TEST(ConfigTest, MissingKafkaAddress) {
+TEST(FingerprinterConfigTest, MissingKafkaAddress) {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wwrite-strings"
   // NOLINTBEGIN(clang-diagnostic-writable-strings)
@@ -45,7 +45,7 @@ TEST(ConfigTest, MissingKafkaAddress) {
                po::invalid_option_value);
 }
 
-TEST(ConfigTest, MissingAudioSource) {
+TEST(FingerprinterConfigTest, MissingAudioSource) {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wwrite-strings"
   // NOLINTBEGIN(clang-diagnostic-writable-strings)
@@ -57,7 +57,7 @@ TEST(ConfigTest, MissingAudioSource) {
                po::invalid_option_value);
 }
 
-TEST(ConfigTest, PositionalAudioSource) {
+TEST(FingerprinterConfigTest, PositionalAudioSource) {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wwrite-strings"
   // NOLINTBEGIN(clang-diagnostic-writable-strings)
@@ -70,7 +70,7 @@ TEST(ConfigTest, PositionalAudioSource) {
   EXPECT_EQ(config.audio_source(), "audio-source");
 }
 
-TEST(ConfigTest, SetAllOptions) {
+TEST(FingerprinterConfigTest, SetAllOptions) {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wwrite-strings"
   // NOLINTBEGIN(clang-diagnostic-writable-strings)
@@ -120,7 +120,7 @@ TEST(ConfigTest, SetAllOptions) {
   EXPECT_EQ(spdlog::get_level(), spdlog::level::warn);
 }
 
-TEST(ConfigTest, BufferNotMultiple) {
+TEST(FingerprinterConfigTest, BufferNotMultiple) {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wwrite-strings"
   // NOLINTBEGIN(clang-diagnostic-writable-strings)
@@ -134,7 +134,7 @@ TEST(ConfigTest, BufferNotMultiple) {
                po::invalid_option_value);
 }
 
-TEST(ConfigTest, UnknownOption) {
+TEST(FingerprinterConfigTest, UnknownOption) {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wwrite-strings"
   // NOLINTBEGIN(clang-diagnostic-writable-strings)
@@ -147,7 +147,7 @@ TEST(ConfigTest, UnknownOption) {
                po::unknown_option);
 }
 
-TEST(ConfigTest, CustomDefaults) {
+TEST(FingerprinterConfigTest, CustomDefaults) {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wwrite-strings"
   // NOLINTBEGIN(clang-diagnostic-writable-strings)
@@ -164,4 +164,94 @@ TEST(ConfigTest, CustomDefaults) {
   EXPECT_EQ(config.offsets()[0], 0);
   EXPECT_EQ(config.offsets()[1], 40);
   EXPECT_EQ(spdlog::get_level(), spdlog::level::debug);
+}
+
+TEST(ProsumerConfigTest, MinimalisticConfig) {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wwrite-strings"
+  // NOLINTBEGIN(clang-diagnostic-writable-strings)
+  char *argv[] = {"program_name", "--kafka-address", "kafka-address",
+                  "--consumer-group", "consumer-group"};
+  // NOLINTEND(clang-diagnostic-writable-strings)
+#pragma GCC diagnostic pop
+  int argc = sizeof(argv) / sizeof(char *);
+  ProsumerConfig config(argc, argv);
+
+  EXPECT_EQ(config.kafka_address(), "kafka-address");
+  EXPECT_EQ(config.consumer_group(), "consumer-group");
+  EXPECT_EQ(config.input_topic(), "ambient-audio-fingerprints-raw");
+  EXPECT_EQ(config.output_topic(), "ambient-audio-fingerprints");
+  EXPECT_EQ(config.peaks_key(), "channel1");
+  EXPECT_EQ(spdlog::get_level(), spdlog::level::debug);
+}
+
+TEST(ProsumerConfigTest, MissingKafkaAddress) {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wwrite-strings"
+  // NOLINTBEGIN(clang-diagnostic-writable-strings)
+  char *argv[] = {"program_name", "--consumer-group", "consumer-group"};
+  // NOLINTEND(clang-diagnostic-writable-strings)
+#pragma GCC diagnostic pop
+  int argc = sizeof(argv) / sizeof(char *);
+  EXPECT_THROW(ProsumerConfig config(argc, argv), po::invalid_option_value);
+}
+
+TEST(ProsumerConfigTest, MissingConsumerGroup) {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wwrite-strings"
+  // NOLINTBEGIN(clang-diagnostic-writable-strings)
+  char *argv[] = {"program_name", "--kafka-address", "kafka-address"};
+  // NOLINTEND(clang-diagnostic-writable-strings)
+#pragma GCC diagnostic pop
+  int argc = sizeof(argv) / sizeof(char *);
+  EXPECT_THROW(ProsumerConfig config(argc, argv), po::invalid_option_value);
+}
+
+TEST(ProsumerConfigTest, SetAllOptions) {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wwrite-strings"
+  // NOLINTBEGIN(clang-diagnostic-writable-strings)
+
+  char *argv[] = {"program_name",
+                  "--kafka-address",
+                  "kafka-address",
+                  "--consumer-group",
+                  "consumer-group",
+                  "--input-topic",
+                  "input-topic",
+                  "--output-topic",
+                  "output-topic",
+                  "--peaks-key",
+                  "peaks-key",
+                  "--spdlog-level",
+                  "warn"};
+  // NOLINTEND(clang-diagnostic-writable-strings)
+#pragma GCC diagnostic pop
+  int argc = sizeof(argv) / sizeof(char *);
+  ProsumerConfig config(argc, argv);
+
+  EXPECT_EQ(config.kafka_address(), "kafka-address");
+  EXPECT_EQ(config.consumer_group(), "consumer-group");
+  EXPECT_EQ(config.input_topic(), "input-topic");
+  EXPECT_EQ(config.output_topic(), "output-topic");
+  EXPECT_EQ(config.peaks_key(), "peaks-key");
+  EXPECT_EQ(spdlog::get_level(), spdlog::level::warn);
+}
+
+TEST(ProsumerConfigTest, UnknownOption) {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wwrite-strings"
+  // NOLINTBEGIN(clang-diagnostic-writable-strings)
+  char *argv[] = {"program_name",
+                  "--kafka-address",
+                  "kafka-address",
+                  "--consumer-group",
+                  "consumer-group",
+                  "--test",
+                  "3"};
+  // NOLINTEND(clang-diagnostic-writable-strings)
+#pragma GCC diagnostic pop
+  int argc = sizeof(argv) / sizeof(char *);
+  EXPECT_THROW(StreamFingerprinterConfig config(argc, argv),
+               po::unknown_option);
 }
