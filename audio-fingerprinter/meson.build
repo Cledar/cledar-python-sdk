@@ -18,9 +18,6 @@ af_dep = [
   rdkafka.get_variable('rdkafka_dep'),
   rdkafka.get_variable('rdkafkapp_dep'),
   spdlog.get_variable('spdlog_dep'),
-  dependency('fftw3'),
-  dependency('fftw3f'),
-  nlohmann_json.get_variable('nlohmann_json_dep'),
 ]
 
 executable(
