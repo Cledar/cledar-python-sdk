@@ -31,7 +31,7 @@ executable(
   ['prosumer.cpp'],
   dependencies: [fingerprint_dep, af_dep],
 )
-
+  
 gtest_proj = subproject('gtest')
 gtest_main_dep = gtest_proj.get_variable('gtest_main_dep')
 gmock_dep = gtest_proj.get_variable('gmock_dep')

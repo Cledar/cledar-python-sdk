@@ -42,6 +42,7 @@ test_fingerprint = executable(
         fingerprint_dep,
         gtest_main_dep,
         gmock_dep,
+        lib_deps,
     ],
 )
 
