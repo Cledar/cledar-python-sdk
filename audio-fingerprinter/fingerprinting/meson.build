@@ -1,14 +1,11 @@
 # project('fingerprinting', 'cpp', default_options: ['cpp_std=c++23'])
 # TODO(kkrol): Make it actual subproject
 
-spdlog = subproject('spdlog')
-nlohmann_json = subproject('nlohmann_json')
-
 lib_deps = [
     dependency('fftw3'),
     dependency('fftw3f'),
-    nlohmann_json.get_variable('nlohmann_json_dep'),
-    spdlog.get_variable('spdlog_dep'),
+    dependency('nlohmann_json'),
+    dependency('spdlog'),
 ]
 
 fingerprint_lib = library(
@@ -31,17 +28,13 @@ fingerprint_dep = declare_dependency(
     link_with: fingerprint_lib,
 )
 
-gtest_proj = subproject('gtest')
-gtest_main_dep = gtest_proj.get_variable('gtest_main_dep')
-gmock_dep = gtest_proj.get_variable('gmock_dep')
-
 test_fingerprint = executable(
     'test_fingerprint',
     'tests/test_fingerprint.cpp',
     dependencies: [
         fingerprint_dep,
-        gtest_main_dep,
-        gmock_dep,
+        dependency('gtest_main'),
+        dependency('gmock'),
         lib_deps,
     ],
 )

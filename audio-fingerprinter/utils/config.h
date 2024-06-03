@@ -1,6 +1,6 @@
 #ifndef AUDIO_FINGERPRINTER_UTILS_CONFIG_H_
 #define AUDIO_FINGERPRINTER_UTILS_CONFIG_H_
-
+#define FMT_HEADER_ONLY
 #include <spdlog/fmt/ranges.h>
 #include <spdlog/spdlog.h>
 
