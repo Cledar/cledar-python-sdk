@@ -1,0 +1,15 @@
+include:
+  - path: ../../services/reference-buffering-server/docker-compose.yml
+    env_file:
+      - ../../services/reference-buffering-server/.env.example
+
+services:
+  audio-fingerprinting:
+    build:
+      context: .
+      target: run_local
+      dockerfile: Dockerfile
+    networks:
+      - redpanda_network
+    depends_on:
+      - redpanda-0

@@ -8,7 +8,7 @@
 
 #include "fingerprint.h"
 
-constexpr const char *FINGERPRINTER_DEFAULT_OUTPUT_TOPIC = "fingerprint";
+constexpr const char *FINGERPRINTER_DEFAULT_OUTPUT_TOPIC = "fingerprints";
 constexpr const char *PROSUMER_DEFAULT_OUTPUT_TOPIC =
     "ambient-audio-fingerprints";
 constexpr const char *DEFAULT_INPUT_TOPIC = "ambient-audio-fingerprints-raw";
