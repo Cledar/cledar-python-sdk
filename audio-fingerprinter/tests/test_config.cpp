@@ -22,7 +22,7 @@ TEST(FingerprinterConfigTest, MinimalisticConfig) {
   EXPECT_EQ(config.audio_source(), "audio-source");
   EXPECT_EQ(config.channel(), "audio-source");
   EXPECT_EQ(config.station_id(), "audio-source");
-  EXPECT_EQ(config.fingerprint_topic(), "fingerprint");
+  EXPECT_EQ(config.fingerprint_topic(), "fingerprints");
   EXPECT_EQ(config.sframe_size(), 8192);
   EXPECT_EQ(config.buffer_read(), 81920);
   EXPECT_EQ(config.ts(), 0);
