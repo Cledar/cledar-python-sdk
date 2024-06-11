@@ -8,7 +8,7 @@
 #include <iostream>
 #include <memory>
 
-#define PRODUCER_FLUSH_TIMEOUT_MS 5000  // TODO(kkrol): Why 5s?
+#define PRODUCER_FLUSH_TIMEOUT_MS 1000  // TODO(kkrol): Why 1s?
 #define AWAIT_MSG_TIMEOUT_MS 1000       // TODO(kkrol): Why 1s?
 
 /**

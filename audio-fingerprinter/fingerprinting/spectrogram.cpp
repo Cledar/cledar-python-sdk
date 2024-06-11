@@ -26,8 +26,12 @@ SpectrogramCalculator::SpectrogramCalculator(int frame_size)
       window_han_(sframe_size_),
       fftw_out_(fftwf_alloc_complex(fftw_out_size_)),
       fftw_plan_(fftwf_plan_dft_r2c_1d(sframe_size_, sframe_.data(), fftw_out_,
-                                       FFTW_MEASURE)) {
-  // originally FFTW_ESTIMATE, MEASURE should initialize longer, but run faster
+                                       FFTW_ESTIMATE)) {
+  // TODO(kkrol): change to FFTW_MEASURE, originally FFTW_ESTIMATE, MEASURE
+  // should initialize longer, but run faster - MEASURE AND ESTIMATE give very
+  // similar outputs, yet differing sometimes by the margin of error, which
+  // might affect later calculations hence ESTIMATE until we change Miernik or
+  // decide it's too rare
 
   if (!fftw_out_ || !fftw_plan_) {
     SPDLOG_CRITICAL("Failed to allocate memory for FFTW");
