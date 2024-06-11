@@ -31,7 +31,7 @@ executable(
   ['prosumer.cpp'],
   dependencies: [fingerprint_dep, af_dep],
 )
-  
+
 gtest_proj = subproject('gtest')
 gtest_main_dep = gtest_proj.get_variable('gtest_main_dep')
 gmock_dep = gtest_proj.get_variable('gmock_dep')
@@ -49,3 +49,8 @@ test_config = executable(
 )
 
 test('test_config', test_config)
+
+run_target(
+  'e2e_test',
+  command: ['./tests/e2e_test.sh', '@BUILD_ROOT@'],
+)

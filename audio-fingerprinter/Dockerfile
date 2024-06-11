@@ -10,9 +10,13 @@ RUN pip3 install --break-system-packages meson ninja
 
 FROM builder AS build
 
-COPY ./audio-fingerprinter/ ./audio-fingerprinter/
+COPY . ./audio-fingerprinter/
 
 WORKDIR /app/audio-fingerprinter
 
 RUN meson setup build
 RUN meson compile -C build
+
+FROM build AS e2e_test
+
+CMD ["meson", "compile", "e2e_test", "-C", "build"]
