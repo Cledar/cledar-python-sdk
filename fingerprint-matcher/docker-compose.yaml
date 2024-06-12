@@ -1,0 +1,9 @@
+version: '4'
+services:
+  matcher-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: fingerprint-matcher:latest
+    volumes:
+     - ./.env:/matcher/.env
