@@ -6,7 +6,7 @@
 #include <iostream>
 
 SpectrogramLogger::SpectrogramLogger(std::string file)
-    : spectrogram_sink_(fopen(file.c_str(), "wb+"), &fclose) {}
+    : spectrogram_sink_(fopen(file.c_str(), "wb+")) {}
 
 void SpectrogramLogger::log_spectrogram(std::span<spec_t> spectrogram) {
   if (!spectrogram_sink_) {

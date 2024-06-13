@@ -12,7 +12,7 @@ lib_deps = [
 ]
 
 fingerprint_lib = library(
-    'libfingerprint',
+    'fingerprint',
     sources: [
         'fingerprint.h',
         'fingerprint.cpp',

@@ -30,7 +30,7 @@ typedef struct {
  */
 class PeakLogger {
  protected:
-  std::unique_ptr<FILE, decltype(&fclose)> peaks_sink_;
+  std::unique_ptr<FILE, FILECloser> peaks_sink_;
 
  public:
   /**

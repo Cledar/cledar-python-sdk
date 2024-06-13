@@ -14,7 +14,7 @@
  */
 class SpectrogramLogger {
  protected:
-  std::unique_ptr<FILE, decltype(&fclose)> spectrogram_sink_;
+  std::unique_ptr<FILE, FILECloser> spectrogram_sink_;
 
  public:
   /**

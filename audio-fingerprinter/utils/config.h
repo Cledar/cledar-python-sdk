@@ -134,12 +134,13 @@ class StreamFingerprinterConfig : public CommonConfig {
       offsets_ = {0, step_size_ / 2};
     }
 
+    std::string offsets_str(offsets_.begin(), offsets_.end());
     SPDLOG_INFO(
         "Config:\n Kafka Address: {}\n Audio Source: {}\n sframe size: {}\n "
         "buffer size: {}\n step size: {}\n Station ID: {}\n Channel: {}\n "
         "Topic for Fingerprints: {}\n Initial Timestamp: {}\n Offsets: {}",
         kafka_address_, audio_source_, sframe_size_, buffer_read_, step_size_,
-        station_id_, channel_, fingerprint_topic_, ts_, offsets_);
+        station_id_, channel_, fingerprint_topic_, ts_, offsets_str);
   }
 
  public:
