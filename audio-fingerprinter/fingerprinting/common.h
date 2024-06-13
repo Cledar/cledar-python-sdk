@@ -6,6 +6,13 @@
 typedef int16_t sample_t;
 typedef float spec_t;
 
+struct FILECloser
+{
+  void operator()(FILE* file) {
+    fclose(file);
+  }
+};
+
 #define SAMPLE_HZ 44100
 #define CUTOFF_FREQ 10000
 

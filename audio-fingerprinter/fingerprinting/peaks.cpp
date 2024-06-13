@@ -9,7 +9,7 @@ int pframe_to_time(int pframe) { return pframe * PFRAME_WIDTH; }
 }  // namespace
 
 PeakLogger::PeakLogger(std::string file)
-    : peaks_sink_(fopen(file.c_str(), "wb+"), &fclose) {}
+    : peaks_sink_(fopen(file.c_str(), "wb+")) {}
 
 void PeakLogger::log_peaks(std::span<peak_t> peaks_ans) {
   if (!peaks_sink_) {
