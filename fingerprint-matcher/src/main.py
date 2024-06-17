@@ -28,7 +28,7 @@ def init_spark():
         .config("spark.executor.memory", settings.executor_mem)
         .config("spark.ui.showConsoleProgress", False)
         .config("spark.task.maxFailures", 2)
-        .config("spark.jars.packages", "org.postgresql:postgresql:42.7.3")
+        .config("spark.jars.packages", settings.postgres_jar_pckg)
         .config("spark.sql.shuffle.partitions", settings.n_shuffle_partitions)
         .getOrCreate()
     )
