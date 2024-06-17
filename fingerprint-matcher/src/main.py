@@ -1,4 +1,3 @@
-# pylint: skip-file
 import os
 import glob
 import shutil
@@ -8,10 +7,10 @@ from src.data_processing import (
     FingerprintsMatcher,
     ContinuousBatchProcessor,
 )
+from src import settings
 from src.utils import get_syslog_logger, get_fingerprints_df, get_matcher_stream
 import pyspark
 from pyspark.sql import SparkSession
-import src.settings as settings
 
 
 def init_spark():
@@ -57,32 +56,32 @@ class TransformAndMatchPipeline:
             settings.raw_fingerprints_table_name,
             settings.fingerprints_parsed_table_name,
         )
-        extract_function = peaks_extractor.extract_from_db  # FIXME(karolpustelnik)
+        extract_function = peaks_extractor.protobuf_read_parse_save
+        # FIXME(karolpustelnik)
         self.protobuf_processor = ContinuousBatchProcessor(
             spark,
             logger,
-            settings.stream_fingerprints_start_time,  # Starting date for batch processing.
-            settings.stream_fingerprints_run_id,  # Identifier for the batch run.
-            db_ref_peaks_properties=settings.db_ref_peaks_properties,  # Connection properties.
-            output_table_name=settings.output_table_name,  # Output table name.
-            batch_processor=extract_function,  # Function for processing batches.
-            time_delta=settings.peaks_extractor_time_delta_s,  # Time delta for batch processing.
-            processing_time=settings.peaks_extractor_processing_time_s,  # Processing time for batch.
-            throttle_fun=lambda x: x - 10,  # Throttling function for maximum timestamp.
+            settings.stream_fingerprints_start_time,
+            settings.stream_fingerprints_run_id,
+            db_ref_peaks_properties=settings.db_ref_peaks_properties,
+            output_table_name=settings.output_table_name,
+            batch_processor=extract_function,
+            time_delta=settings.peaks_extractor_time_delta_s,
+            processing_time=settings.peaks_extractor_processing_time_s,
+            throttle_fun=lambda x: x - 10,
         )
         fingerprints_chunker = ContinuousBatchProcessor(
             spark,
             logger,
-            settings.stream_fingerprints_start_time,  # Starting date for batch processing.
-            settings.stream_fingerprints_run_id
-            + "_matcher",  # Identifier for the batch run.
-            db_ref_peaks_properties=settings.db_ref_peaks_properties,  # Connection properties.
-            output_table_name=settings.output_table_name,  # Output table name.
-            batch_processor=self.chunker_batch_processor,  # Function for processing batches.
+            settings.stream_fingerprints_start_time,
+            settings.stream_fingerprints_run_id + "_matcher",
+            db_ref_peaks_properties=settings.db_ref_peaks_properties,
+            output_table_name=settings.output_table_name,
+            batch_processor=self.chunker_batch_processor,
             time_delta=settings.fingerprint_chunker_time_delta_s,
             processing_time=settings.fingerprint_chunker_processing_time_s,
             throttle_fun=lambda __curr_epoch: peaks_extractor.min_ts
-            - settings.fingerprint_chunker_dalay_s,  # Throttling function
+            - settings.fingerprint_chunker_dalay_s,
         )
         self.fingerprint_matcher = FingerprintsMatcher(
             spark,
@@ -126,7 +125,8 @@ class TransformAndMatchPipeline:
         - batch_id (str): Identifier for the batch.
 
         Returns:
-        - Tuple[int, datetime]: Number of processed records and timestamp of the processed batch.
+        - Tuple[int, datetime]: Number of processed records and timestamp
+        of the processed batch.
         """
         beg_ts = time.time()
         fingerprints_df = get_fingerprints_df(
@@ -139,7 +139,7 @@ class TransformAndMatchPipeline:
         fingerprints_df = fingerprints_df.persist(pyspark.StorageLevel.MEMORY_ONLY)
         cnt = fingerprints_df.count()
         logger.debug(
-            "^^^^^ fingerprintsChunker new parralelization: Fetched fingerprint peaks "
+            "Chunker process: Loaded miernik Fingerprints"
             "for %s from %s (epoch-%s) "
             "with count: %s in %s seconds",
             ts_end,
@@ -154,15 +154,15 @@ class TransformAndMatchPipeline:
         for file in parquet_files:
             shutil.move(file, "./fingerprints-chunked/")
         logger.debug(
-            "^^^^^ fingerprintsChunker new parralelization: \
-                    Fetched and saved data in %s seconds",
+            "Chunker process: Chunked miernik fingerprints data in %s seconds",
             time.time() - beg_ts,
         )
         return cnt, ts_end
 
     def monitor_streaming(self, run_date):
         """
-        Monitor the status and progress of the streaming data processing pipeline iteration.
+        Monitor the status and progress of the streaming data processing
+        pipeline iteration.
 
         This function continuously monitors the status of each component in the pipeline
         and checks for any errors or termination conditions.
@@ -182,7 +182,7 @@ class TransformAndMatchPipeline:
                 logger.info("SCQ: %s", self.chunker_monitor.status["message"])
             if self.matcher_monitor:
                 logger.info("SMQ: %s", self.matcher_monitor.status["message"])
-            no_input_files = False
+            no_fingerprints = False
             if self.extractor_monitor:
                 statistics_for_last_three_iters = self.protobuf_processor.daily_stats[
                     -3:
@@ -198,23 +198,23 @@ class TransformAndMatchPipeline:
                 )
                 minimum_iterations = len(self.protobuf_processor.daily_stats) > 5
                 no_fingerprints = last_three_matches_zero and minimum_iterations
-            if no_fingerprints and no_input_files:
-                logger.info("No progress: no_fingerprints and no_files")
+            if no_fingerprints:
+                logger.info("No progress: no_fingerprints")
                 break
             if self.extractor_monitor and self.extractor_monitor.status[
                 "message"
             ].startswith("Terminated with exception"):
-                logger.info("Error in fingerprints loader (slq stream) ")
+                logger.error("Error in fingerprints loader (slq stream) ")
                 break
             if self.matcher_monitor and self.matcher_monitor.status[
                 "message"
             ].startswith("Terminated with exception"):
-                logger.info("Error in matcher stream (smq)")
+                logger.error("Error in matcher stream (smq)")
                 break
             if self.chunker_monitor and self.chunker_monitor.status[
                 "message"
             ].startswith("Terminated with exception"):
-                logger.info("Error in chunker stream (scq)")
+                logger.error("Error in chunker stream (scq)")
                 break
             time.sleep(60)
         return "Iteration completed."
