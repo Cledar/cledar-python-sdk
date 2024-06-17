@@ -1,7 +1,7 @@
 include:
   - path: ../../services/reference-buffering-server/docker-compose.yml
     env_file:
-      - ../../services/reference-buffering-server/.env.example
+      - ../../services/reference-buffering-server/.env
 
 services:
   audio-fingerprinting:
