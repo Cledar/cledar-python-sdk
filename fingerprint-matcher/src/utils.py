@@ -6,7 +6,7 @@ import math
 import logging
 import pandas as pd
 import src.app_data_pb2 as app_data_pb2
-from src.settings import SECOND_TO_MS
+from src.constants import SECOND_TO_MS
 
 
 def add_processed_up_to_row(
@@ -45,14 +45,14 @@ def date_to_ts(date):
     return datetime(date.year, date.month, date.day)
 
 
-def get_syslog_logger(logg_file_path):
+def get_syslog_logger(log_file_path):
     """
     Get a logger instance for the Spark worker.
     """
     logger = logging.getLogger("spark-worker")
     logger.setLevel(logging.DEBUG)
     if len(logger.handlers) == 0:
-        file_handler = RotatingFileHandler(logg_file_path)
+        file_handler = RotatingFileHandler(log_file_path)
         file_handler.setLevel(logging.DEBUG)
         logger.addHandler(file_handler)
     return logger

@@ -7,7 +7,7 @@ from src.data_processing import (
     FingerprintsMatcher,
     ContinuousBatchProcessor,
 )
-from src import settings
+from src.settings import settings
 from src.utils import get_syslog_logger, get_fingerprints_df, get_matcher_stream
 import pyspark
 from pyspark.sql import SparkSession
@@ -22,20 +22,22 @@ def init_spark():
     sql = (
         SparkSession.builder.master(spark_master)
         .appName("load-app")
-        .config("spark.driver.memory", settings.driver_mem)
-        .config("spark.executor.cores", settings.n_threads)
-        .config("spark.executor.memory", settings.executor_mem)
+        .config("spark.driver.memory", settings.spark_settings.driver_mem)
+        .config("spark.executor.cores", settings.spark_settings.n_threads)
+        .config("spark.executor.memory", settings.spark_settings.executor_mem)
         .config("spark.ui.showConsoleProgress", False)
         .config("spark.task.maxFailures", 2)
-        .config("spark.jars.packages", settings.postgres_jar_pckg)
-        .config("spark.sql.shuffle.partitions", settings.n_shuffle_partitions)
+        .config("spark.jars.packages", settings.spark_settings.postgres_jar_pckg)
+        .config(
+            "spark.sql.shuffle.partitions", settings.spark_settings.n_shuffle_partitions
+        )
         .getOrCreate()
     )
     return sql, sql.sparkContext
 
 
 spark, sc = init_spark()
-logger = get_syslog_logger(settings.logg_file_path)
+logger = get_syslog_logger(settings.logging_settings.log_file_path)
 
 
 class TransformAndMatchPipeline:
@@ -50,56 +52,58 @@ class TransformAndMatchPipeline:
         peaks_extractor = PeaksExtractor(
             spark,
             logger,
-            settings.n_threads,
+            settings.spark_settings.n_threads,
             settings.db_fingerprints_properties,
             settings.db_parsed_fingerprints_properties,
-            settings.raw_fingerprints_table_name,
-            settings.fingerprints_parsed_table_name,
+            settings.table_names.raw_fingerprints_table_name,
+            settings.table_names.fingerprints_parsed_table_name,
         )
         extract_function = peaks_extractor.protobuf_read_parse_save
         # FIXME(karolpustelnik)
         self.protobuf_processor = ContinuousBatchProcessor(
             spark,
             logger,
-            settings.stream_fingerprints_start_time,
-            settings.stream_fingerprints_run_id,
+            settings.streaming_settings.stream_fingerprints_start_time,
+            settings.streaming_settings.stream_fingerprints_run_id,
             db_ref_peaks_properties=settings.db_ref_peaks_properties,
-            output_table_name=settings.output_table_name,
+            output_table_name=settings.table_names.output_table_name,
             batch_processor=extract_function,
-            time_delta=settings.peaks_extractor_time_delta_s,
-            processing_time=settings.peaks_extractor_processing_time_s,
+            time_delta=settings.peaks_extractor_settings.time_delta_s,
+            processing_time=settings.peaks_extractor_settings.processing_time_s,
             throttle_fun=lambda x: x - 10,
         )
         fingerprints_chunker = ContinuousBatchProcessor(
             spark,
             logger,
-            settings.stream_fingerprints_start_time,
-            settings.stream_fingerprints_run_id + "_matcher",
+            settings.streaming_settings.stream_fingerprints_start_time,
+            settings.streaming_settings.stream_fingerprints_run_id + "_matcher",
             db_ref_peaks_properties=settings.db_ref_peaks_properties,
-            output_table_name=settings.output_table_name,
+            output_table_name=settings.table_names.output_table_name,
             batch_processor=self.chunker_batch_processor,
-            time_delta=settings.fingerprint_chunker_time_delta_s,
-            processing_time=settings.fingerprint_chunker_processing_time_s,
+            time_delta=settings.fingerprint_chunker_settings.time_delta_s,
+            processing_time=settings.fingerprint_chunker_settings.processing_time_s,
             throttle_fun=lambda __curr_epoch: peaks_extractor.min_ts
-            - settings.fingerprint_chunker_dalay_s,
+            - settings.fingerprint_chunker_settings.delay_s,
         )
         self.fingerprint_matcher = FingerprintsMatcher(
             spark,
             logger,
-            settings.n_threads,
+            settings.spark_settings.n_threads,
             settings.db_ref_peaks_properties,
             settings.db_fingerprints_matched_properties,
-            settings.reference_peaks_table_name,
-            settings.fingerprints_matched_table_name,
-            settings.reference_peaks_delay_s,
-            settings.ref_restart_freq,
-            settings.before_window_surplus,
-            settings.after_window_surplus,
+            settings.table_names.reference_peaks_table_name,
+            settings.table_names.fingerprints_matched_table_name,
+            settings.fingerprints_matcher_settings.reference_peaks_delay_s,
+            settings.fingerprints_matcher_settings.ref_restart_freq,
+            settings.fingerprints_matcher_settings.before_window_surplus,
+            settings.fingerprints_matcher_settings.after_window_surplus,
         )
         self.extractor_monitor = self.protobuf_processor.start()
         self.chunker_monitor = fingerprints_chunker.start()
         self.matcher_monitor = get_matcher_stream(
-            spark, self.match_batch, settings.matcher_processing_time_s
+            spark,
+            self.match_batch,
+            settings.fingerprints_matcher_settings.processing_time_s,
         ).start()
 
     def match_batch(self, batchdf, __batchid):
@@ -132,7 +136,7 @@ class TransformAndMatchPipeline:
         fingerprints_df = get_fingerprints_df(
             spark,
             settings.db_parsed_fingerprints_properties,
-            settings.fingerprints_parsed_table_name,
+            settings.table_names.fingerprints_parsed_table_name,
             ts_end.timestamp(),
             ts_start.timestamp(),
         )
@@ -224,7 +228,11 @@ if __name__ == "__main__":
     # Initialize the pipeline and start the streaming data processing.
     pipeline = TransformAndMatchPipeline()
     try:
-        logger.info(pipeline.monitor_streaming(settings.stream_fingerprints_start_time))
+        logger.info(
+            pipeline.monitor_streaming(
+                settings.streaming_settings.stream_fingerprints_start_time
+            )
+        )
     except Exception as exc:
         logger.error("An error occurred: %s", exc)
         import traceback
