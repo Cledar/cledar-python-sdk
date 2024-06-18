@@ -136,7 +136,8 @@ def get_protobuf(
     spark, db_fingerprints_properites, raw_fingerprints_table_name, ts_end, ts_start
 ):
     """
-    This function connects to a PostgreSQL database and retrieves packed protobuf peaks data
+    This function connects to a PostgreSQL database and retrieves packed
+    protobuf peaks data
     that were created within the given time range.
     The time range is specified by the timestamps `ts_end` and `ts_start`.
 
@@ -148,7 +149,8 @@ def get_protobuf(
         ts_start (datetime.datetime): The start timestamp of the time range (exclusive).
 
     Returns:
-        pyspark.sql.DataFrame: A Spark DataFrame containing the fetched protbuf peaks data.
+        pyspark.sql.DataFrame: A Spark DataFrame containing the
+        fetched protbuf peaks data.
 
     """
     # Convert datetime objects to string representations
@@ -176,8 +178,8 @@ def parse_protobuf(df, batch_id):
 
     This function takes a DataFrame containing fingerprint data and a batch ID,
     parses the fingerprint data using protobuf, and extracts relevant information
-    into a new DataFrame.
-    Each fingerprint is decoded and processed to generate various hash values and timestamps.
+    into a new DataFrame. Each fingerprint is decoded and processed to generate various
+    hash values and timestamps.
 
     Args:
         df (pandas.DataFrame): A DataFrame containing the fingerprint data to be parsed.
@@ -186,7 +188,8 @@ def parse_protobuf(df, batch_id):
         batch_id (str): The batch ID to be associated with the parsed data.
 
     Returns:
-        pandas.DataFrame: A DataFrame containing the parsed and processed fingerprint data.
+        pandas.DataFrame: A DataFrame containing the parsed and processed
+        fingerprint data.
         The output DataFrame contains columns:
         'lp', 'hash_1', 'hash_2', 't', 'f', 'id', 'ts', 'tts', 'offset',
         'created_at', 'imei', and 'batchid'.
@@ -249,7 +252,8 @@ def get_fingerprints_df(
 
     Args:
         spark (SparkSession): The Spark session object.
-        db_ref_peaks_properties (dict): A dictionary of properties to pass to the JDBC connection.
+        db_ref_peaks_properties (dict): A dictionary of properties
+        to pass to the JDBC connection.
         fingerprints_parsed_table_name (str): The name of the table containing
         the parsed fingerprints data.
         ts_end (int): The maximum timestamp value.
@@ -290,11 +294,14 @@ def get_ref_fingerprints_df(
 
     Args:
         spark (SparkSession): The Spark session object.
-        db_ref_peaks_properties (dict): A dictionary of properties to pass to the JDBC connection.
-        reference_peaks_table_name (str): The name of the table containing the reference peaks data.
+        db_ref_peaks_properties (dict): A dictionary of properties
+        to pass to the JDBC connection.
+        reference_peaks_table_name (str): The name of the table containing
+        the reference peaks data.
         ts_end (int): The end timestamp of the time range.
         ts_start (int): The start timestamp of the time range.
-        reference_peaks_delay_s (int): The delay in seconds for the reference peaks data. It is used to
+        reference_peaks_delay_s (int): The delay in seconds for the reference
+        peaks data. It is used to
         adjust the timestamp range for diffrent systems (macos, linux, etc.)
 
     Returns:

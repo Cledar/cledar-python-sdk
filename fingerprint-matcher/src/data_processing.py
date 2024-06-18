@@ -32,15 +32,16 @@ class PeaksExtractor:
         spark (SparkSession): The Spark session object.
         logger (Logger): The logger object.
         n_threads (int): The number of threads to use for processing.
-        db_ref_peaks_properties (dict): Additional properties for the database connection.
-        db_fingerprints_properties (dict): Additional properties for the fingerprints database
-        connection.
-        db_parsed_fingerprints_properties (dict): Additional properties for the reference peaks
-        database connection.
+        db_ref_peaks_properties (dict): Additional properties
+        for the database connection.
+        db_fingerprints_properties (dict): Additional properties
+        for the fingerprints database connection.
+        db_parsed_fingerprints_properties (dict): Additional properties
+        for the reference peaks database connection.
         raw_fingerprints_table_name (str): The name of the raw fingerprints table in the
         fingerprints database.
-        fingerprints_parsed_table_name (str): The name of the parsed fingerprints table in the
-        reference peaks database.
+        fingerprints_parsed_table_name (str): The name of the parsed fingerprints table
+        in the reference peaks database.
         min_ts (int): The minimum timestamp encountered during processing.
         max_ts (int): The maximum timestamp encountered during processing.
     """
@@ -66,10 +67,10 @@ class PeaksExtractor:
             fingerprints database connection.
             db_parsed_fingerprints_properties (dict): Additional properties for the
             reference peaks database connection.
-            raw_fingerprints_table_name (str): The name of the raw fingerprints table in the
-            fingerprints database.
-            fingerprints_parsed_table_name (str): The name of the parsed fingerprints table in the
-            reference peaks database.
+            raw_fingerprints_table_name (str): The name of the raw fingerprints table
+            in the fingerprints database.
+            fingerprints_parsed_table_name (str): The name of the parsed fingerprints
+            table in the reference peaks database.
         """
         self.spark = spark
         self.logger = logger
@@ -80,20 +81,20 @@ class PeaksExtractor:
         self.fingerprints_parsed_table_name = fingerprints_parsed_table_name
         self.min_ts = 0  # TODO(karolpustelnik): change to None
 
-    def extract_from_db(self, ts_end, ts_start, batch_id):
+    def protobuf_read_parse_save(self, ts_end, ts_start, batch_id):
         """
-        Reads protobuf messages from db and extracts peaks.
+        Reads protobuf messages from db, extracts peaks and writes them to the database.
 
         Args:
             ts_end (datetime.datetime): The end timestamp (created_at) of the time range
             (inclusive).
-            ts_start (datetime.datetime): The start timestamp (created_at) of the time range
-            (exclusive).
+            ts_start (datetime.datetime): The start timestamp (created_at)
+            of the time range (exclusive).
             batch_id (int): The batch ID for the processed data.
 
         Returns:
-            tuple: A tuple containing the count of processed fingerprints and the end timestamp
-            of the time range.
+            tuple: A tuple containing the count of processed fingerprints and the end
+            timestamp of the time range.
 
         """
         output_schema = StructType(
@@ -114,7 +115,7 @@ class PeaksExtractor:
         )
         beg_ts = time.time()
         self.logger.debug(
-            f"**** FingerprintsLoader: Start reading fingerprints {ts_end} - {ts_start}"
+            f"PeaksExtractor: Reading protobuf messages: {ts_start} - {ts_end}"
         )
         # Fetch fingerprint data within the specified time range
         protobuf_df = get_protobuf(
@@ -131,8 +132,16 @@ class PeaksExtractor:
             F.col("start_time") <= ts_end.timestamp() * SECOND_TO_MS
         )
         protobuf_df = protobuf_df.repartition(self.n_threads)
+        protobuf_df_cnt = protobuf_df.count()
+        if protobuf_df_cnt == 0:
+            self.logger.warning(
+                f"PeaksExtractor: No protobuf messages found in {ts_start} - {ts_end}"
+            )
+            # return 0, ts_end #TODO(karolpustelnik): If there are no messages, should
+            # we wait and retry later?
         self.logger.debug(
-            f"**** FingerprintsLoader: Finished reading fingerprints {ts_end} - {ts_start}, count: {protobuf_df.count()}"
+            f"PeaksExtractor: Finished reading protobuf messages {ts_start} "
+            f"- {ts_end}, count: {protobuf_df_cnt}"
         )
         # Apply the Pandas UDF to parse the fingerprints and create a new dataframe
         protobuf_df = protobuf_df.groupBy("id").applyInPandas(
@@ -142,9 +151,10 @@ class PeaksExtractor:
         protobuf_df = protobuf_df.where(F.col("tts") > ts_end - timedelta(days=1))
         protobuf_df = protobuf_df.persist(StorageLevel.MEMORY_ONLY)
         # Count the number of processed fingerprints
-        cnt = protobuf_df.count()
+        protobuf_df_processed_cnt = protobuf_df.count()
         self.logger.debug(
-            f"**** FingerprintsLoader: Extracted peaks from fingerprints {ts_end} - {ts_start}, count: {cnt} in {time.time() - beg_ts} seconds"
+            f"PeaksExtractor: Extracted peaks {ts_start} - {ts_end}, "
+            f"count: {protobuf_df_processed_cnt} in {time.time() - beg_ts} seconds"
         )
         # Update min_ts
         self.min_ts = int(ts_start.timestamp())
@@ -157,9 +167,10 @@ class PeaksExtractor:
         )
 
         self.logger.debug(
-            f"**** FingerprintsLoader: Fully processed fingerprints in {time.time() - beg_ts} seconds"
+            f"PeaksExtractor: Peaks inserted into the database. "
+            f"Time summary: {time.time() - beg_ts} seconds"
         )
-        return cnt, ts_end
+        return protobuf_df_processed_cnt, ts_end
 
 
 class ContinuousBatchProcessor:
@@ -205,17 +216,18 @@ class ContinuousBatchProcessor:
             spark (SparkSession): The Spark session object.
             logger (Logger): The logger object.
             run_date (datetime.date): Start date for the run.
-            run_id (str): The identifier for the current run, used as a filter in the output table.
+            run_id (str): The identifier for the current run, used as a filter
+            in the output table.
             db_ref_peaks_properties (dict): Properties for the database connection.
             output_table_name (str): The name of the output table.
-            batch_processor (function): The function used for processing batches with signature
-            (max_ts: datetime, min_ts: datetime, batch_id: str) ->
+            batch_processor (function): The function used for processing batches
+            with signature (max_ts: datetime, min_ts: datetime, batch_id: str) ->
             (rows_returned: int, real_max_ts: datetime).
             time_delta (int): Maximum time in seconds between max_ts and min_ts provided
             to batch_processor.
             processing_time (int): The processing time for the streaming query.
-            throttle_fun (function): A function giving an upper bound for max_ts with signature
-            (batch_epoch: int).
+            throttle_fun (function): A function giving an upper bound
+            for max_ts with signature (batch_epoch: int).
         """
         self.spark = spark
         self.logger = logger
@@ -234,11 +246,14 @@ class ContinuousBatchProcessor:
         """
         Internal method to process a batch of data.
 
-        This method processes a batch of data by applying the batch_processor function
-        and updating the output table.
+        This method processes a batch of data by using the batch_processor function
+        and then updates the output table. Note that the batch_processor function
+        is responsible for ingesting the actual batch of data.
 
         Args:
-            batchdf (DataFrame): The DataFrame containing the batch of data to process.
+            batchdf (DataFrame): The DataFrame contains columns timestamp and value
+            (batchid) which are generated by readStream. This is not the actual
+            data to process.
             batchid (str): The identifier for the batch.
 
         Returns:
@@ -246,12 +261,16 @@ class ContinuousBatchProcessor:
         """
         rate_row = batchdf.orderBy("timestamp", ascending=False).first()
         if rate_row is None:
-            self.logger.info("&&&& Batch start: Pusty batch " + str(self.run_id))
-            # TODO(karolpustelnik): rewrite to: Starting stream with run id: {self.run_id}.
+            self.logger.info(
+                f"{self.batch_processor.__qualname__}: Starting stream with run id: "
+                f"{self.run_id}."
+            )
             return
-        system_ts = rate_row["timestamp"]
-        self.logger.info(f"&&&& Batch start: {self.run_id} - {system_ts}")
-        # TODO(karolpustelnik): [{batch_ts}]: Stream with run id: {self.run_id}.
+        batch_ts = rate_row["timestamp"]
+        self.logger.info(
+            f"{self.batch_processor.__qualname__}: Processing batch {batchid} "
+            f"with run id {self.run_id} and timestamp {batch_ts}"
+        )
         if len(self.daily_stats) > 0:
             processed_up_to, _, _ = self.daily_stats[-1]
             if (
@@ -259,7 +278,9 @@ class ContinuousBatchProcessor:
                 and processed_up_to.date() > self.run_date.date()
             ):
                 self.logger.info(
-                    f"&&&& Batch start: {self.run_id} finishing because {self.run_date} has been processed, and a new day started: {processed_up_to}"
+                    f"{self.batch_processor.__qualname__}: {self.run_id} finishing "
+                    f"because {self.run_date} has been processed, "
+                    f"and a new day started: {processed_up_to}"
                 )
                 # TODO(karolpustelnik): rewrite these to be more informative
                 self.daily_stats.append(
@@ -286,35 +307,40 @@ class ContinuousBatchProcessor:
         )
         if curr_row is None:
             self.logger.info(
-                f"&&&& There are no records in table 'output_test' for {self.run_id}. We start from the beginning i.e. {self.run_date}"
+                f"{self.batch_processor.__qualname__}: There are no records in table "
+                f"'output_test' for {self.run_id}. "
+                f"We start from the beginning i.e. {self.run_date}"
             )
             add_processed_up_to_row(
                 self.spark,
                 self.db_ref_peaks_properties,
                 self.output_table_name,
                 date_to_ts(self.run_date),
-                system_ts,
+                batch_ts,
                 batchid,
                 self.run_id,
             )
             return
         ts_start = curr_row["ts"]
         upper_bound_ts_end = datetime.fromtimestamp(
-            self.throttle_fun(system_ts.timestamp())
+            self.throttle_fun(batch_ts.timestamp())
         )
         ts_end = ts_start + timedelta(seconds=self.time_delta)
         if ts_end > upper_bound_ts_end:
-            self.logger.info(
-                f"&&&& There is no progress {self.run_id} expected time: {ts_end} current upper_bound: {upper_bound_ts_end}"
+            self.logger.debug(
+                f"{self.batch_processor.__qualname__}: Processing catched-up "
+                f"current upper_bound: {upper_bound_ts_end}. "
+                f"If upper_bound is around year 1970, it means chunker is still "
+                f"waiting for peaks extractor to initialize min_ts."
             )
-            # TODO(karolpustelnik): rewrite these to be more informative
             return
-        self.logger.info(
-            f"&&&& Processing {self.run_id} time range: {ts_start} - {ts_end} current upper_bound: {upper_bound_ts_end}"
+        self.logger.debug(
+            f"{self.batch_processor.__qualname__}: Processing batch {batchid} with "
+            f"run id {self.run_id} and timestamp {batch_ts}. Time range of dataframe: "
+            f"{ts_start} - {ts_end} current upper_bound: {upper_bound_ts_end}"
         )
         # TODO(karolpustelnik): rewrite these to be more informative
         rows_processed, _ = self.batch_processor(ts_end, ts_start, batchid)
-        self.logger.info(f"&&&& Processed {self.run_id} - {ts_end}")
         self.daily_stats.append(
             (
                 ts_end,
@@ -327,11 +353,14 @@ class ContinuousBatchProcessor:
             self.db_ref_peaks_properties,
             self.output_table_name,
             ts_end,
-            system_ts,
+            batch_ts,
             batchid,
             self.run_id,
         )
-        self.logger.info(f"&&&& End of the batch {self.run_id} - {ts_end}")
+        self.logger.info(
+            f"{self.batch_processor.__qualname__}: Batch {batchid} with "
+            f"run id {self.run_id} finished. Processed up to {ts_end}."
+        )
 
     def start(self):
         """
@@ -346,7 +375,8 @@ class ContinuousBatchProcessor:
         once_per_second = (
             self.spark.readStream.format("rate").option("rowsPerSecond", 1).load()
         )
-        # ^^^ this is a way to start triggering _process_batch every self.processing_time seconds.
+        # ^^^ this is a way to start triggering _process_batch every
+        # self.processing_time seconds.
         self.streaming_query = (
             once_per_second.writeStream.trigger(
                 processingTime=f"{self.processing_time} seconds"
@@ -411,10 +441,11 @@ class FingerprintsMatcher:
             logger (Logger): The logger object.
             n_threads (int): The number of threads to use for processing.
             db_ref_peaks_properties (dict): Properties for the database connection.
-            db_fingerprints_matched_properties (dict): Properties for the matched fingerprints
-            database connection.
+            db_fingerprints_matched_properties (dict): Properties for the matched
+            fingerprints database connection.
             reference_peaks_table_name (str): The name of the reference peaks table.
-            fingerprints_matched_table_name (str): The name of the matched fingerprints table.
+            fingerprints_matched_table_name (str): The name of the matched fingerprints
+            table.
             reference_peaks_delay_s (int): Delay for reference peaks.
             pk_restart_cnt (int): Counter for peak restarts.
             before_window_surplus (int): Time window before matching.
@@ -459,8 +490,9 @@ class FingerprintsMatcher:
         self.ref_df = self.ref_df.repartition(self.n_threads, "offset").persist(
             StorageLevel.MEMORY_ONLY
         )
-        self.logger.info(
-            f"&&&& Peak matching: size of fingerprints df {miernik_fp_df.count()} and ref_df: {self.ref_df.count()}"
+        self.logger.debug(
+            f"Peak matching: size of fingerprints df {miernik_fp_df.count()} "
+            f"and ref_df: {self.ref_df.count()}"
         )
         # Create temporary views for fingerprints and reference peaks
         miernik_fp_df.createOrReplaceGlobalTempView("fp")
@@ -474,12 +506,12 @@ class FingerprintsMatcher:
             F.min(F.col("ts")), F.max(F.col("ts"))
         ).first()
 
-        self.logger.info(
-            f"&&&& Peak matching: fingerprints timestamp: \
-                         min={datetime.utcfromtimestamp(min_miernik_ts)}, \
-                         max={datetime.utcfromtimestamp(max_miernik_ts)}, \
-                         reference peaks timestamp: min={datetime.utcfromtimestamp(min_ref_ts)}, \
-                         max={datetime.utcfromtimestamp(max_ref_ts)}"
+        self.logger.debug(
+            f"Peak matching: fingerprints timestamp: "
+            f"min={datetime.utcfromtimestamp(min_miernik_ts)}, "
+            f"max={datetime.utcfromtimestamp(max_miernik_ts)}, "
+            f"reference peaks timestamp: min={datetime.utcfromtimestamp(min_ref_ts)}, "
+            f"max={datetime.utcfromtimestamp(max_ref_ts)}"
         )
 
         # SQL query for peak matching
@@ -525,12 +557,13 @@ class FingerprintsMatcher:
         )
         # Drop temporary views
         self.spark.catalog.dropGlobalTempView("fp")
-        self.logger.info(
-            f"&&&& Peak matching: matched fingerprints, \
-                         timestamp: min={datetime.utcfromtimestamp(min_miernik_ts)}, \
-                         max={datetime.utcfromtimestamp(max_miernik_ts)}, \
-                         timestamp of reference peaks: min={datetime.utcfromtimestamp(min_ref_ts)},\
-                         max={datetime.utcfromtimestamp(max_ref_ts)}"
+        self.logger.debug(
+            f"Peak matching: matched fingerprints, "
+            f"timestamp: min={datetime.utcfromtimestamp(min_miernik_ts)}, "
+            f"max={datetime.utcfromtimestamp(max_miernik_ts)}, "
+            f"timestamp of reference peaks: "
+            f"min={datetime.utcfromtimestamp(min_ref_ts)}, "
+            f"max={datetime.utcfromtimestamp(max_ref_ts)}"
         )
         return cnt
 
@@ -551,14 +584,13 @@ class FingerprintsMatcher:
         """
         beg_ts = time.time()
         miernik_df = miernik_df.persist(pyspark.StorageLevel.MEMORY_ONLY)
-        miernik_df_count = miernik_df.count()
-        self.logger.debug(
-            f"++++ FingerprintsMatcher: fingerprints input for match \
-                          {miernik_df_count}"
-        )
-        if miernik_df_count == 0:
+        miernik_df_cnt = miernik_df.count()
+        if miernik_df_cnt == 0:
+            self.logger.warning("FingerprintsMatcher: no fingerprints to match")
             return
-
+        self.logger.debug(
+            f"FingerprintsMatcher: fingerprints input for match {miernik_df_cnt}"
+        )
         miernik_df.createOrReplaceGlobalTempView("fps")
         overlap_start_ts = self.spark.sql(
             "select min(ts) minval from global_temp.fps"
@@ -583,11 +615,19 @@ class FingerprintsMatcher:
             )
             self.ref_df.cache()
             self.ref_restart_idx = self.ref_restart_freq
+            ref_df_cnt = self.ref_df.count()
+            if ref_df_cnt == 0:
+                self.logger.warning(
+                    f"FingerprintsMatcher: no reference peaks to match "
+                    f"{datetime.utcfromtimestamp(self.ref_window_start_ts)} "
+                    f"{datetime.utcfromtimestamp(self.ref_window_end_ts)} "
+                )
+                # return #TODO(karolpustelnik): determine what to do in this case
             self.logger.debug(
-                f"++++ FingerprintsMatcher: new parralelization fingerprintMatcher: \
-                       reference peaks from {datetime.utcfromtimestamp(self.ref_window_start_ts)} \
-                       to {datetime.utcfromtimestamp(self.ref_window_end_ts)} - downloaded \
-                       {self.ref_df.count()}"
+                f"FingerprintsMatcher: reference peaks "
+                f"{datetime.utcfromtimestamp(self.ref_window_start_ts)} "
+                f"to {datetime.utcfromtimestamp(self.ref_window_end_ts)} - downloaded "
+                f"{ref_df_cnt}"
             )
         else:
             old_ref_window_end_ts = self.ref_window_end_ts
@@ -606,18 +646,23 @@ class FingerprintsMatcher:
             self.ref_df.persist(pyspark.StorageLevel.MEMORY_AND_DISK_2)
             self.ref_restart_idx -= 1
             self.logger.debug(
-                f"++++ FingerprintsMatcher: new parralelization reference peaks \
-                       from {datetime.utcfromtimestamp(self.ref_window_start_ts)} to \
-                       {datetime.utcfromtimestamp(self.ref_window_end_ts)} - \
-                       refreshed {self.ref_df.count()}"
+                f"FingerprintsMatcher: reference peaks "
+                f"{datetime.utcfromtimestamp(self.ref_window_start_ts)} "
+                f"{datetime.utcfromtimestamp(self.ref_window_end_ts)} - "
+                f"refreshed, total count: {self.ref_df.count()}"
             )
         self.logger.debug(
-            f"++++ FingerprintsMatcher new parralelization: \
-                          reference peaks processed in {time.time() - beg_ts} seconds"
+            f"FingerprintsMatcher: reference peaks loaded in "
+            f"{time.time() - beg_ts} seconds"
         )
         beg_ts = time.time()
         cnt = self._match_fingerprints(miernik_df)
+        if cnt == 0:
+            self.logger.warning(
+                f"FingerprintsMatcher: Did not match any fingerprints! "
+                f"{time.time() - beg_ts} seconds"
+            )
         self.logger.debug(
-            f"++++ FingerprintsMatcher new parralelization: \
-                          matched ref-finger cnt: {cnt} took {time.time() - beg_ts} seconds"
+            f"FingerprintsMatcher: matching ref-finger cnt: "
+            f"{cnt} took {time.time() - beg_ts} seconds"
         )
