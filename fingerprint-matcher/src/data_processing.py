@@ -21,7 +21,7 @@ from src.utils import (
     parse_protobuf,
     date_to_ts,
 )
-from src.settings import SECOND_TO_MS
+from src.constants import SECOND_TO_MS
 
 
 class PeaksExtractor:
@@ -125,7 +125,8 @@ class PeaksExtractor:
             ts_end,
             ts_start,
         ).withColumn(
-            "ts", F.to_timestamp(F.from_unixtime(F.col("start_time") / SECOND_TO_MS))
+            "ts",
+            F.to_timestamp(F.from_unixtime(F.col("start_time") / SECOND_TO_MS)),
         )
         # Filter out erroneous protobufs from the future
         protobuf_df = protobuf_df.where(
