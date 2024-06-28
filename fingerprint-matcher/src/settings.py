@@ -112,7 +112,20 @@ class SparkSettings(BaseSettings):
     n_shuffle_partitions: int = Field(alias="N_SHUFFLE_PARTITIONS")
     driver_mem: str = Field(alias="DRIVER_MEM")
     executor_mem: str = Field(alias="EXECUTOR_MEM")
+    task_max_failures: int = Field(alias="TASK_MAX_FAILURES")
+    ui_show_console_progress: str = Field(alias="UI_SHOW_CONSOLE_PROGRESS")
     postgres_jar_pckg: str = Field(alias="POSTGRES_JAR_PCKG")
+    shuffle_tracking_enabled: str = Field(alias="SHUFFLE_TRACKING_ENABLED")
+    shuffle_service_enabled: str = Field(alias="SHUFFLE_SERVICE_ENABLED")
+    shuffle_service_remove_shuffle: str = Field(alias="SHUFFLE_SERVICE_REMOVE_SHUFFLE")
+    cleaner_reference_tracking_cln_ckp: str = Field(
+        alias="CLEANER_REFERENCE_TRACKING_CLEAN_CKP"
+    )
+    spark_worker_cleanup_enabled: str = Field(alias="SPARK_WORKER_CLEANUP_ENABLED")
+    worker_cleanup_interval: str = Field(alias="WORKER_CLEANUP_INTERVAL")
+    shuffle_file_buffer: str = Field(alias="SHUFFLE_FILE_BUFFER")
+    compression_lz4_blocksize: str = Field(alias="COMPRESSION_LZ4_BLOCKSIZE")
+    force_delete_temp_ckp_loc: str = Field(alias="FORCE_DELETE_CPT_LOC")
 
 
 class Settings(BaseSettings):

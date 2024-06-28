@@ -1,3 +1,4 @@
+# pylint: skip-file
 import os
 import glob
 import shutil
@@ -25,11 +26,49 @@ def init_spark():
         .config("spark.driver.memory", settings.spark_settings.driver_mem)
         .config("spark.executor.cores", settings.spark_settings.n_threads)
         .config("spark.executor.memory", settings.spark_settings.executor_mem)
-        .config("spark.ui.showConsoleProgress", False)
-        .config("spark.task.maxFailures", 2)
+        .config(
+            "spark.ui.showConsoleProgress",
+            settings.spark_settings.ui_show_console_progress,
+        )
+        .config("spark.task.maxFailures", settings.spark_settings.task_max_failures)
         .config("spark.jars.packages", settings.spark_settings.postgres_jar_pckg)
         .config(
             "spark.sql.shuffle.partitions", settings.spark_settings.n_shuffle_partitions
+        )
+        .config(
+            "spark.dynamicAllocation.shuffleTracking.enabled",
+            settings.spark_settings.shuffle_tracking_enabled,
+        )
+        .config(
+            "spark.shuffle.service.enabled",
+            settings.spark_settings.shuffle_service_enabled,
+        )
+        .config(
+            "spark.shuffle.service.removeShuffle",
+            settings.spark_settings.shuffle_service_remove_shuffle,
+        )
+        .config(
+            "spark.cleaner.referenceTracking.cleanCheckpoints",
+            settings.spark_settings.cleaner_reference_tracking_cln_ckp,
+        )
+        .config(
+            "spark.worker.cleanup.enabled",
+            settings.spark_settings.spark_worker_cleanup_enabled,
+        )
+        .config(
+            "spark.worker.cleanup.interval",
+            settings.spark_settings.worker_cleanup_interval,
+        )
+        .config(
+            "spark.shuffle.file.buffer", settings.spark_settings.shuffle_file_buffer
+        )
+        .config(
+            "spark.io.compression.lz4.blockSize",
+            settings.spark_settings.compression_lz4_blocksize,
+        )
+        .config(
+            "spark.sql.streaming.forceDeleteTempCheckpointLocation",
+            settings.spark_settings.force_delete_temp_ckp_loc,
         )
         .getOrCreate()
     )
@@ -65,7 +104,7 @@ class TransformAndMatchPipeline:
             logger,
             settings.streaming_settings.stream_fingerprints_start_time,
             settings.streaming_settings.stream_fingerprints_run_id,
-            db_ref_peaks_properties=settings.db_ref_peaks_properties,
+            db_parsed_fingerprints_properties=settings.db_parsed_fingerprints_properties,
             output_table_name=settings.table_names.output_table_name,
             batch_processor=extract_function,
             time_delta=settings.peaks_extractor_settings.time_delta_s,
@@ -77,7 +116,7 @@ class TransformAndMatchPipeline:
             logger,
             settings.streaming_settings.stream_fingerprints_start_time,
             settings.streaming_settings.stream_fingerprints_run_id + "_matcher",
-            db_ref_peaks_properties=settings.db_ref_peaks_properties,
+            db_parsed_fingerprints_properties=settings.db_parsed_fingerprints_properties,
             output_table_name=settings.table_names.output_table_name,
             batch_processor=self.chunker_batch_processor,
             time_delta=settings.fingerprint_chunker_settings.time_delta_s,
@@ -140,10 +179,9 @@ class TransformAndMatchPipeline:
             ts_end.timestamp(),
             ts_start.timestamp(),
         )
-        fingerprints_df = fingerprints_df.persist(pyspark.StorageLevel.MEMORY_ONLY)
         cnt = fingerprints_df.count()
         logger.debug(
-            "Chunker process: Loaded miernik Fingerprints"
+            "Chunker process: Loaded miernik Fingerprints "
             "for %s from %s (epoch-%s) "
             "with count: %s in %s seconds",
             ts_end,
@@ -152,7 +190,9 @@ class TransformAndMatchPipeline:
             cnt,
             time.time() - beg_ts,
         )
-        fingerprints_df = fingerprints_df.repartition(1)
+        fingerprints_df = fingerprints_df.withColumn(
+            "offset", fingerprints_df["offset"].cast("long")
+        )
         fingerprints_df.write.mode("append").parquet("./fingerprints-chunked/chunks/")
         parquet_files = glob.glob("./fingerprints-chunked/chunks/" + "*parquet")
         for file in parquet_files:

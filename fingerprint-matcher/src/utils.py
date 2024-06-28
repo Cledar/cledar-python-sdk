@@ -4,6 +4,7 @@ from logging.handlers import RotatingFileHandler
 import base64
 import math
 import logging
+import sys
 import pandas as pd
 import src.app_data_pb2 as app_data_pb2
 from src.constants import SECOND_TO_MS
@@ -11,7 +12,7 @@ from src.constants import SECOND_TO_MS
 
 def add_processed_up_to_row(
     spark,
-    db_ref_peaks_properties,
+    db_connection_properties,
     output_table_name,
     data_ts,
     batch_ts,
@@ -35,14 +36,16 @@ def add_processed_up_to_row(
 
     schema = "ts timestamp, batch_ts timestamp, batchid integer, run_id string"
     df = spark.createDataFrame([(data_ts, batch_ts, batchid, run_id)], schema=schema)
-    spark_write_to_db(df, db_ref_peaks_properties, output_table_name)
+    spark_write_to_db(df, db_connection_properties, output_table_name)
 
 
 def date_to_ts(date):
     """
     Converts a datetime object to a timestamp.
     """
-    return datetime(date.year, date.month, date.day)
+    return datetime(
+        date.year, date.month, date.day, date.hour, date.minute, date.second
+    )
 
 
 def get_syslog_logger(log_file_path):
@@ -51,10 +54,18 @@ def get_syslog_logger(log_file_path):
     """
     logger = logging.getLogger("spark-worker")
     logger.setLevel(logging.DEBUG)
+
     if len(logger.handlers) == 0:
+        # File handler for writing logs to a file
         file_handler = RotatingFileHandler(log_file_path)
         file_handler.setLevel(logging.DEBUG)
         logger.addHandler(file_handler)
+
+        # Stream handler for writing logs to stdout (Docker logs)
+        stream_handler = logging.StreamHandler(sys.stdout)
+        stream_handler.setLevel(logging.DEBUG)
+        logger.addHandler(stream_handler)
+
     return logger
 
 
