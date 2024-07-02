@@ -93,18 +93,22 @@ class TransformAndMatchPipeline:
         """
         Initialize the pipeline components and start the streams.
         """
-        proto_db_config = DBConfig(
+        peaks_db_config = DBConfig(
             settings.db_parsed_fingerprints_properties,
+            settings.table_names.fingerprints_parsed_table_name,
             settings.table_names.output_table_name,
         )
+        proto_db_config = DBConfig(
+            settings.db_fingerprints_properties,
+            settings.table_names.raw_fingerprints_table_name,
+            None,
+        )
+
         peaks_extractor = PeaksExtractor(
             spark,
-            logger,
-            settings.spark_settings.n_threads,
-            settings.db_fingerprints_properties,
-            settings.db_parsed_fingerprints_properties,
-            settings.table_names.raw_fingerprints_table_name,
-            settings.table_names.fingerprints_parsed_table_name,
+            settings.spark_settings.n_partitions,
+            peaks_db_config,
+            proto_db_config,
         )
         extract_function = peaks_extractor.protobuf_read_parse_save
         # FIXME(karolpustelnik)
@@ -113,7 +117,7 @@ class TransformAndMatchPipeline:
             logger,
             settings.streaming_settings.stream_fingerprints_start_time,
             settings.streaming_settings.stream_fingerprints_run_id,
-            db_config=proto_db_config,
+            db_config=peaks_db_config,
             batch_processor=extract_function,
             time_delta=settings.peaks_extractor_settings.time_delta_s,
             processing_time=settings.peaks_extractor_settings.processing_time_s,
@@ -124,7 +128,7 @@ class TransformAndMatchPipeline:
             logger,
             settings.streaming_settings.stream_fingerprints_start_time,
             settings.streaming_settings.stream_fingerprints_run_id + "_matcher",
-            db_config=proto_db_config,
+            db_config=peaks_db_config,
             batch_processor=self.chunker_batch_processor,
             time_delta=settings.fingerprint_chunker_settings.time_delta_s,
             processing_time=settings.fingerprint_chunker_settings.processing_time_s,
