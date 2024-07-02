@@ -9,7 +9,12 @@ from src.data_processing import (
     ContinuousBatchProcessor,
 )
 from src.settings import settings
-from src.utils import get_syslog_logger, get_fingerprints_df, get_matcher_stream
+from src.utils import (
+    get_syslog_logger,
+    get_fingerprints_df,
+    get_matcher_stream,
+    DBConfig,
+)
 import pyspark
 from pyspark.sql import SparkSession
 
@@ -88,6 +93,10 @@ class TransformAndMatchPipeline:
         """
         Initialize the pipeline components and start the streams.
         """
+        proto_db_config = DBConfig(
+            settings.db_parsed_fingerprints_properties,
+            settings.table_names.output_table_name,
+        )
         peaks_extractor = PeaksExtractor(
             spark,
             logger,
@@ -104,8 +113,7 @@ class TransformAndMatchPipeline:
             logger,
             settings.streaming_settings.stream_fingerprints_start_time,
             settings.streaming_settings.stream_fingerprints_run_id,
-            db_parsed_fingerprints_properties=settings.db_parsed_fingerprints_properties,
-            output_table_name=settings.table_names.output_table_name,
+            db_config=proto_db_config,
             batch_processor=extract_function,
             time_delta=settings.peaks_extractor_settings.time_delta_s,
             processing_time=settings.peaks_extractor_settings.processing_time_s,
@@ -116,8 +124,7 @@ class TransformAndMatchPipeline:
             logger,
             settings.streaming_settings.stream_fingerprints_start_time,
             settings.streaming_settings.stream_fingerprints_run_id + "_matcher",
-            db_parsed_fingerprints_properties=settings.db_parsed_fingerprints_properties,
-            output_table_name=settings.table_names.output_table_name,
+            db_config=proto_db_config,
             batch_processor=self.chunker_batch_processor,
             time_delta=settings.fingerprint_chunker_settings.time_delta_s,
             processing_time=settings.fingerprint_chunker_settings.processing_time_s,

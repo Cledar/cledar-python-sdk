@@ -9,34 +9,42 @@ import pandas as pd
 import src.app_data_pb2 as app_data_pb2
 from src.constants import SECOND_TO_MS
 
+from dataclasses import dataclass
+from datetime import datetime
 
-def add_processed_up_to_row(
-    spark,
-    db_connection_properties,
-    output_table_name,
-    data_ts,
-    batch_ts,
-    batchid,
-    run_id,
-):
+
+@dataclass
+class DBConfig:
+    connection_properties: dict
+    output_table_name: str
+
+
+@dataclass
+class ProcessedDataInfo:
+    data_ts: datetime
+    batch_ts: datetime
+    batchid: int
+    run_id: str
+
+
+def add_processed_up_to_row(spark, db_config: DBConfig, data_info: ProcessedDataInfo):
     """
     Adds a new row to the 'output' table with information about the processed data.
 
     Parameters:
-        data_ts (datetime): Timestamp of the data.
-        batch_ts (datetime): Timestamp of the batch.
-        batchid (int): Batch ID.
-        run_id (str): Identifier for the run.
-        url (str): URL of the database.
-        properties (dict): Connection properties.
+        db_config (DBConfig): Database configuration with connection properties and output table name.
+        data_info (ProcessedDataInfo): Metadata for the processed data.
 
     Returns:
         None
     """
 
     schema = "ts timestamp, batch_ts timestamp, batchid integer, run_id string"
-    df = spark.createDataFrame([(data_ts, batch_ts, batchid, run_id)], schema=schema)
-    spark_write_to_db(df, db_connection_properties, output_table_name)
+    df = spark.createDataFrame(
+        [(data_info.data_ts, data_info.batch_ts, data_info.batchid, data_info.run_id)],
+        schema=schema,
+    )
+    spark_write_to_db(df, db_config.connection_properties, db_config.output_table_name)
 
 
 def date_to_ts(date):
@@ -275,7 +283,7 @@ def get_fingerprints_df(
         the specified time range.
 
     """
-    where_condition = f"""tts > to_timestamp({int(ts_start)}-90) and tts < to_timestamp({int(ts_end)}+90)"""
+    where_condition = f"""tts >= to_timestamp({int(ts_start)}) and tts < to_timestamp({int(ts_end)})"""
     sql_pattern = f"""
                 select * 
                 from {fingerprints_parsed_table_name}
@@ -321,7 +329,7 @@ def get_ref_fingerprints_df(
 
     """
     where_condition = f"""
-        tts > to_timestamp({ts_start-reference_peaks_delay_s}-100) and tts < to_timestamp({ts_end-reference_peaks_delay_s}+100)
+        tts >= to_timestamp({ts_start-reference_peaks_delay_s}) and tts < to_timestamp({ts_end-reference_peaks_delay_s})
     """
     sql_pattern = f"""
                 select * 

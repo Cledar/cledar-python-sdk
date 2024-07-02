@@ -20,6 +20,7 @@ from src.utils import (
     spark_read_from_db,
     parse_protobuf,
     date_to_ts,
+    ProcessedDataInfo,
 )
 from src.constants import SECOND_TO_MS
 
@@ -183,8 +184,7 @@ class ContinuousBatchProcessor:
         logger (Logger): The logger object.
         run_date (datetime.date): Start date for the run.
         run_id (str): The identifier for the current run.
-        db_ref_peaks_properties (dict): Properties for the database connection.
-        output_table_name (str): The name of the output table.
+        db_config (DBConfig): Database configuration with connection properties and output table name.
         batch_processor (function): The function used for processing batches.
         time_delta (int): Maximum time in seconds between max_ts and min_ts provided
         to batch_processor.
@@ -200,8 +200,7 @@ class ContinuousBatchProcessor:
         logger,
         run_date,
         run_id,
-        db_parsed_fingerprints_properties,
-        output_table_name,
+        db_config: DBConfig,
         batch_processor,
         time_delta=300,
         processing_time=30,
@@ -219,8 +218,7 @@ class ContinuousBatchProcessor:
             run_date (datetime.date): Start date for the run.
             run_id (str): The identifier for the current run, used as a filter
             in the output table.
-            db_parsed_fingerprints_properties (dict): Properties for the database connection.
-            output_table_name (str): The name of the output table.
+            db_config (DBConfig): Database configuration with connection properties and output table name.
             batch_processor (function): The function used for processing batches
             with signature (max_ts: datetime, min_ts: datetime, batch_id: str) ->
             (rows_returned: int, real_max_ts: datetime).
@@ -239,8 +237,7 @@ class ContinuousBatchProcessor:
         self.time_delta = time_delta
         self.processing_time = processing_time
         self.throttle_fun = throttle_fun
-        self.db_parsed_fingerprints_properties = db_parsed_fingerprints_properties
-        self.output_table_name = output_table_name
+        self.db_config = db_config
         self.streaming_query = None
 
     def _process_batch(self, batchdf, batchid):
@@ -280,7 +277,7 @@ class ContinuousBatchProcessor:
             spark_read_from_db(
                 self.spark,
                 self.db_parsed_fingerprints_properties,
-                sql_pattern=f"(select * from {self.output_table_name} where {where_cond})",
+                sql_pattern=f"(select * from {self.db_config.output_table_name} where {where_cond})",
             )
             .orderBy("ts", ascending=False)
             .first()
@@ -288,17 +285,19 @@ class ContinuousBatchProcessor:
         if curr_row is None:
             self.logger.info(
                 f"{self.batch_processor.__qualname__}: There are no records in table "
-                f"{self.output_table_name} for {self.run_id}. "
+                f"{self.db_config.output_table_name} for {self.run_id}. "
                 f"We start from the beginning i.e. {self.run_date}"
+            )
+            data_info = ProcessedDataInfo(
+                data_ts=date_to_ts(self.run_date),
+                batch_ts=batch_ts,
+                batchid=batchid,
+                run_id=self.run_id,
             )
             add_processed_up_to_row(
                 self.spark,
-                self.db_parsed_fingerprints_properties,
-                self.output_table_name,
-                date_to_ts(self.run_date),
-                batch_ts,
-                batchid,
-                self.run_id,
+                self.db_config,
+                data_info,
             )
             return
         ts_start = curr_row["ts"]
@@ -328,14 +327,16 @@ class ContinuousBatchProcessor:
                 rows_processed,
             )
         )
+        data_info = ProcessedDataInfo(
+            data_ts=date_to_ts(self.run_date),
+            batch_ts=batch_ts,
+            batchid=batchid,
+            run_id=self.run_id,
+        )
         add_processed_up_to_row(
             self.spark,
-            self.db_parsed_fingerprints_properties,
-            self.output_table_name,
-            ts_end,
-            batch_ts,
-            batchid,
-            self.run_id,
+            self.db_config,
+            data_info,
         )
         self.logger.info(
             f"{self.batch_processor.__qualname__}: Batch {batchid} with "
