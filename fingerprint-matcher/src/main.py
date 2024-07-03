@@ -11,7 +11,7 @@ from src.data_processing import (
 from src.settings import settings
 from src.utils import (
     get_syslog_logger,
-    get_fingerprints_df,
+    get_miernik_fingerprints_df,
     get_matcher_stream,
     DBConfig,
 )
@@ -75,6 +75,7 @@ def init_spark():
             "spark.sql.streaming.forceDeleteTempCheckpointLocation",
             settings.spark_settings.force_delete_temp_ckp_loc,
         )
+        .config("spark.cleaner.ttl", settings.spark_settings.cleaner_ttl)
         .getOrCreate()
     )
     return sql, sql.sparkContext
@@ -93,22 +94,31 @@ class TransformAndMatchPipeline:
         """
         Initialize the pipeline components and start the streams.
         """
-        peaks_db_config = DBConfig(
+        self.peaks_db_config = DBConfig(
             settings.db_parsed_fingerprints_properties,
             settings.table_names.fingerprints_parsed_table_name,
             settings.table_names.output_table_name,
         )
-        proto_db_config = DBConfig(
+        self.proto_db_config = DBConfig(
             settings.db_fingerprints_properties,
             settings.table_names.raw_fingerprints_table_name,
             None,
         )
-
+        self.ref_db_config = DBConfig(
+            settings.db_ref_peaks_properties,
+            settings.table_names.reference_peaks_table_name,
+            None,
+        )
+        self.matched_db_config = DBConfig(
+            settings.db_fingerprints_matched_properties,
+            settings.table_names.fingerprints_matched_table_name,
+            None,
+        )
         peaks_extractor = PeaksExtractor(
             spark,
             settings.spark_settings.n_partitions,
-            peaks_db_config,
-            proto_db_config,
+            self.peaks_db_config,
+            self.proto_db_config,
         )
         extract_function = peaks_extractor.protobuf_read_parse_save
         # FIXME(karolpustelnik)
@@ -117,7 +127,7 @@ class TransformAndMatchPipeline:
             logger,
             settings.streaming_settings.stream_fingerprints_start_time,
             settings.streaming_settings.stream_fingerprints_run_id,
-            db_config=peaks_db_config,
+            db_config=self.peaks_db_config,
             batch_processor=extract_function,
             time_delta=settings.peaks_extractor_settings.time_delta_s,
             processing_time=settings.peaks_extractor_settings.processing_time_s,
@@ -128,7 +138,7 @@ class TransformAndMatchPipeline:
             logger,
             settings.streaming_settings.stream_fingerprints_start_time,
             settings.streaming_settings.stream_fingerprints_run_id + "_matcher",
-            db_config=peaks_db_config,
+            db_config=self.peaks_db_config,
             batch_processor=self.chunker_batch_processor,
             time_delta=settings.fingerprint_chunker_settings.time_delta_s,
             processing_time=settings.fingerprint_chunker_settings.processing_time_s,
@@ -137,12 +147,9 @@ class TransformAndMatchPipeline:
         )
         self.fingerprint_matcher = FingerprintsMatcher(
             spark,
-            logger,
             settings.spark_settings.n_threads,
-            settings.db_ref_peaks_properties,
-            settings.db_fingerprints_matched_properties,
-            settings.table_names.reference_peaks_table_name,
-            settings.table_names.fingerprints_matched_table_name,
+            self.ref_db_config,
+            self.matched_db_config,
             settings.fingerprints_matcher_settings.reference_peaks_delay_s,
             settings.fingerprints_matcher_settings.ref_restart_freq,
             settings.fingerprints_matcher_settings.before_window_surplus,
@@ -183,10 +190,9 @@ class TransformAndMatchPipeline:
         of the processed batch.
         """
         beg_ts = time.time()
-        fingerprints_df = get_fingerprints_df(
+        fingerprints_df = get_miernik_fingerprints_df(
             spark,
-            settings.db_parsed_fingerprints_properties,
-            settings.table_names.fingerprints_parsed_table_name,
+            self.peaks_db_config,
             ts_end.timestamp(),
             ts_start.timestamp(),
         )

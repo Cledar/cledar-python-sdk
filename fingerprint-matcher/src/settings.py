@@ -127,6 +127,7 @@ class SparkSettings(BaseSettings):
     shuffle_file_buffer: str = Field(alias="SHUFFLE_FILE_BUFFER")
     compression_lz4_blocksize: str = Field(alias="COMPRESSION_LZ4_BLOCKSIZE")
     force_delete_temp_ckp_loc: str = Field(alias="FORCE_DELETE_CPT_LOC")
+    cleaner_ttl: int = Field(alias="CLEANER_TTL")
 
 
 class Settings(BaseSettings):

@@ -36,10 +36,8 @@ class PeaksExtractor:
         spark (SparkSession): The Spark session object.
         logger (Logger): The logger object.
         n_partitions (int): The number of partitions to use for repartitioning.
-        peaks_db_config (DBConfig): Peaks database configuration with connection properties,
-        main data table name and output table name.
-        proto_db_config (DBConfig): Protobuf database configuration with connection properties,
-        main data table name and output table name.
+        peaks_db_config (DBConfig): Peaks database configuration.
+        proto_db_config (DBConfig): Protobuf database configuration.
         min_ts (int): The minimum timestamp encountered during processing.
         max_ts (int): The maximum timestamp encountered during processing.
     """
@@ -57,10 +55,8 @@ class PeaksExtractor:
         Args:
             spark (SparkSession): The Spark session object.
             n_partitions (int): The number of partitions to use for repartitioning.
-            peaks_db_config (DBConfig): Peaks database configuration with connection
-            properties, main data table name and output table name.
-            proto_db_config (DBConfig): Protobuf database configuration with connection
-            properties, main data table name and output table name.
+            peaks_db_config (DBConfig): Peaks database configuration.
+            proto_db_config (DBConfig): Protobuf database configuration.
         """
         self.spark = spark
         self.logger = get_syslog_logger(settings.logging_settings.log_file_path)
@@ -108,8 +104,7 @@ class PeaksExtractor:
         # Fetch fingerprint data within the specified time range
         protobuf_df = get_protobuf(
             self.spark,
-            self.proto_db_config.connection_properties,
-            self.proto_db_config.main_data_table_name,
+            self.proto_db_config,
             ts_end,
             ts_start,
         ).withColumn(
@@ -127,8 +122,7 @@ class PeaksExtractor:
             self.logger.warning(
                 f"PeaksExtractor: No protobuf messages found in {ts_start} - {ts_end}"
             )
-            # return 0, ts_end #TODO(karolpustelnik): If there are no messages, should
-            # we wait and retry later?
+            return 0, ts_end
         self.logger.debug(
             f"PeaksExtractor: Finished reading protobuf messages {ts_start} "
             f"- {ts_end}, count: {protobuf_df_cnt}"
@@ -173,8 +167,7 @@ class ContinuousBatchProcessor:
         logger (Logger): The logger object.
         run_date (datetime.date): Start date for the run.
         run_id (str): The identifier for the current run.
-        db_config (DBConfig): Database configuration with connection properties,
-        main data table name and output table name.
+        db_config (DBConfig): Database configuration.
         batch_processor (function): The function used for processing batches.
         time_delta (int): Maximum time in seconds between max_ts and min_ts provided
         to batch_processor.
@@ -208,8 +201,7 @@ class ContinuousBatchProcessor:
             run_date (datetime.date): Start date for the run.
             run_id (str): The identifier for the current run, used as a filter
             in the output table.
-            db_config (DBConfig): Database configuration with connection properties,
-            main data table name and output table name.
+            db_config (DBConfig): Database configuration.
             batch_processor (function): The function used for processing batches
             with signature (max_ts: datetime, min_ts: datetime, batch_id: str) ->
             (rows_returned: int, real_max_ts: datetime).
@@ -267,7 +259,7 @@ class ContinuousBatchProcessor:
         curr_row = (
             spark_read_from_db(
                 self.spark,
-                self.db_config.main_data_table_name,
+                self.db_config.connection_properties,
                 sql_pattern=f"(select * from {self.db_config.output_table_name} where {where_cond})",
             )
             .orderBy("ts", ascending=False)
@@ -280,7 +272,7 @@ class ContinuousBatchProcessor:
                 f"We start from the beginning i.e. {self.run_date}"
             )
             data_info = ProcessedDataInfo(
-                data_ts=date_to_ts(self.run_date),
+                processed_up_to=date_to_ts(self.run_date),
                 batch_ts=batch_ts,
                 batchid=batchid,
                 run_id=self.run_id,
@@ -309,8 +301,13 @@ class ContinuousBatchProcessor:
             f"run id {self.run_id} and timestamp {batch_ts}. Time range of dataframe: "
             f"{ts_start} - {ts_end} current upper_bound: {upper_bound_ts_end}"
         )
-        # TODO(karolpustelnik): rewrite these to be more informative
         rows_processed, _ = self.batch_processor(ts_end, ts_start, batchid)
+        if rows_processed == 0:
+            self.logger.warning(
+                f"{self.batch_processor.__qualname__}: No data to process. "
+                f"Waiting for new data."
+            )
+            return
         self.daily_stats.append(
             (
                 ts_end,
@@ -319,7 +316,7 @@ class ContinuousBatchProcessor:
             )
         )
         data_info = ProcessedDataInfo(
-            data_ts=date_to_ts(self.run_date),
+            processed_up_to=ts_end,
             batch_ts=batch_ts,
             batchid=batchid,
             run_id=self.run_id,
@@ -379,10 +376,9 @@ class FingerprintsMatcher:
     Attributes:
         spark (SparkSession): The Spark session object.
         logger (Logger): The logger object.
-        n_threads (int): The number of threads to use for processing.
-        db_ref_peaks_conn_url_jdbc (str): JDBC URL for the reference peaks database.
-        db_ref_peaks_properties (dict): Properties for the database connection.
-        reference_peaks_table_name (str): The name of the reference peaks table.
+        n_partitions (int): The number of partitions to use for repartitioning.
+        ref_db_config (DBConfig): Reference signals database configuration.
+        matched_db_config (DBConfig): Matched fingerprints database configuration.
         match_window_before (int): Time window before matching.
         match_window_after (int): Time window after matching.
         pk_restart_cnt (int): Counter for peak restarts.
@@ -394,12 +390,9 @@ class FingerprintsMatcher:
     def __init__(
         self,
         spark,
-        logger,
-        n_threads,
-        db_ref_peaks_properties,
-        db_fingerprints_matched_properties,
-        reference_peaks_table_name,
-        fingerprints_matched_table_name,
+        n_partitions,
+        ref_db_config: DBConfig,
+        matched_db_config: DBConfig,
         reference_peaks_delay_s=0,
         ref_restart_freq=20,
         after_window_surplus=15,
@@ -410,26 +403,19 @@ class FingerprintsMatcher:
 
         Args:
             spark (SparkSession): The Spark session object.
-            logger (Logger): The logger object.
-            n_threads (int): The number of threads to use for processing.
-            db_ref_peaks_properties (dict): Properties for the database connection.
-            db_fingerprints_matched_properties (dict): Properties for the matched
-            fingerprints database connection.
-            reference_peaks_table_name (str): The name of the reference peaks table.
-            fingerprints_matched_table_name (str): The name of the matched fingerprints
-            table.
+            n_partitions (int): The number of partitions to use for repartitioning.
+            ref_db_config (DBConfig): Reference signals database configuration.
+            matched_db_config (DBConfig): Matched fingerprints database configuration.
             reference_peaks_delay_s (int): Delay for reference peaks.
             pk_restart_cnt (int): Counter for peak restarts.
             before_window_surplus (int): Time window before matching.
             after_window_surplus (int): Time window after matching.
         """
-        self.logger = logger
         self.spark = spark
-        self.n_threads = n_threads
-        self.db_ref_peaks_properties = db_ref_peaks_properties
-        self.db_fingerprints_matched_properties = db_fingerprints_matched_properties
-        self.reference_peaks_table_name = reference_peaks_table_name
-        self.fingerprints_matched_table_name = fingerprints_matched_table_name
+        self.logger = get_syslog_logger(settings.logging_settings.log_file_path)
+        self.n_partitions = n_partitions
+        self.ref_db_config = ref_db_config
+        self.matched_db_config = matched_db_config
         self.reference_peaks_delay_s = reference_peaks_delay_s
         self.pk_min_ts = 0
         self.pk_max_ts = 0
@@ -519,8 +505,8 @@ class FingerprintsMatcher:
         cnt = matched_df.count()
         spark_write_to_db(
             matched_df,
-            self.db_fingerprints_matched_properties,
-            self.fingerprints_matched_table_name,
+            self.matched_db_config.connection_properties,
+            self.matched_db_config.main_data_table_name,
         )
         # Drop temporary views
         self.spark.catalog.dropGlobalTempView("fp")
@@ -578,8 +564,7 @@ class FingerprintsMatcher:
             self.ref_window_end_ts = overlap_end_ts + self.after_window_surplus
             self.ref_df = get_ref_fingerprints_df(
                 self.spark,
-                self.db_ref_peaks_properties,
-                self.reference_peaks_table_name,
+                self.ref_db_config,
                 self.ref_window_end_ts,
                 self.ref_window_start_ts,
                 self.reference_peaks_delay_s,
@@ -593,7 +578,7 @@ class FingerprintsMatcher:
                     f"{datetime.utcfromtimestamp(self.ref_window_start_ts)} "
                     f"{datetime.utcfromtimestamp(self.ref_window_end_ts)} "
                 )
-                # return #TODO(karolpustelnik): determine what to do in this case
+                return
             self.logger.debug(
                 f"FingerprintsMatcher: reference peaks "
                 f"{datetime.utcfromtimestamp(self.ref_window_start_ts)} "
@@ -607,8 +592,7 @@ class FingerprintsMatcher:
             self.ref_df = self.ref_df.filter(f"ts > {self.ref_window_start_ts}")
             new_ref_fingerprints = get_ref_fingerprints_df(
                 self.spark,
-                self.db_ref_peaks_properties,
-                self.reference_peaks_table_name,
+                self.ref_db_config,
                 self.ref_window_end_ts,
                 old_ref_window_end_ts,
                 self.reference_peaks_delay_s,
@@ -628,6 +612,9 @@ class FingerprintsMatcher:
             f"{time.time() - beg_ts} seconds"
         )
         beg_ts = time.time()
+        if self.n_partitions > 1:
+            miernik_df = miernik_df.repartition(self.n_partitions)
+            self.ref_df = self.ref_df.repartition(self.n_partitions)
         cnt = self._match_fingerprints(miernik_df)
         if cnt == 0:
             self.logger.warning(
