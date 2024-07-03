@@ -109,6 +109,7 @@ class SparkSettings(BaseSettings):
     )
     disable_spring: str = Field(alias="DISABLE_SPRING")
     n_threads: int = Field(alias="N_THREADS")
+    n_partitions: int = Field(alias="N_PARTITIONS")
     n_shuffle_partitions: int = Field(alias="N_SHUFFLE_PARTITIONS")
     driver_mem: str = Field(alias="DRIVER_MEM")
     executor_mem: str = Field(alias="EXECUTOR_MEM")

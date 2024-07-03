@@ -17,6 +17,7 @@ from datetime import datetime
 class DBConfig:
     connection_properties: dict
     output_table_name: str
+    main_data_table_name: str
 
 
 @dataclass
@@ -32,7 +33,8 @@ def add_processed_up_to_row(spark, db_config: DBConfig, data_info: ProcessedData
     Adds a new row to the 'output' table with information about the processed data.
 
     Parameters:
-        db_config (DBConfig): Database configuration with connection properties and output table name.
+        db_config (DBConfig): Database configuration with connection properties,
+        main data table name and output table name.
         data_info (ProcessedDataInfo): Metadata for the processed data.
 
     Returns:

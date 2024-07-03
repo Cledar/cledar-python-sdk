@@ -21,8 +21,11 @@ from src.utils import (
     parse_protobuf,
     date_to_ts,
     ProcessedDataInfo,
+    get_syslog_logger,
+    DBConfig,
 )
 from src.constants import SECOND_TO_MS
+from src.settings import settings
 
 
 class PeaksExtractor:
@@ -32,17 +35,11 @@ class PeaksExtractor:
     Attributes:
         spark (SparkSession): The Spark session object.
         logger (Logger): The logger object.
-        n_threads (int): The number of threads to use for processing.
-        db_ref_peaks_properties (dict): Additional properties
-        for the database connection.
-        db_fingerprints_properties (dict): Additional properties
-        for the fingerprints database connection.
-        db_parsed_fingerprints_properties (dict): Additional properties
-        for the reference peaks database connection.
-        raw_fingerprints_table_name (str): The name of the raw fingerprints table in the
-        fingerprints database.
-        fingerprints_parsed_table_name (str): The name of the parsed fingerprints table
-        in the reference peaks database.
+        n_partitions (int): The number of partitions to use for repartitioning.
+        peaks_db_config (DBConfig): Peaks database configuration with connection properties,
+        main data table name and output table name.
+        proto_db_config (DBConfig): Protobuf database configuration with connection properties,
+        main data table name and output table name.
         min_ts (int): The minimum timestamp encountered during processing.
         max_ts (int): The maximum timestamp encountered during processing.
     """
@@ -50,36 +47,26 @@ class PeaksExtractor:
     def __init__(
         self,
         spark,
-        logger,
-        n_threads,
-        db_fingerprints_properties,
-        db_parsed_fingerprints_properties,
-        raw_fingerprints_table_name,
-        fingerprints_parsed_table_name,
+        n_partitions,
+        peaks_db_config,
+        proto_db_config,
     ):
         """
         Initialize the PeaksExtractor object.
 
         Args:
             spark (SparkSession): The Spark session object.
-            logger (Logger): The logger object.
-            n_threads (int): The number of threads to use for processing.
-            db_fingerprints_properties (dict): Additional properties for the
-            fingerprints database connection.
-            db_parsed_fingerprints_properties (dict): Additional properties for the
-            reference peaks database connection.
-            raw_fingerprints_table_name (str): The name of the raw fingerprints table
-            in the fingerprints database.
-            fingerprints_parsed_table_name (str): The name of the parsed fingerprints
-            table in the reference peaks database.
+            n_partitions (int): The number of partitions to use for repartitioning.
+            peaks_db_config (DBConfig): Peaks database configuration with connection
+            properties, main data table name and output table name.
+            proto_db_config (DBConfig): Protobuf database configuration with connection
+            properties, main data table name and output table name.
         """
         self.spark = spark
-        self.logger = logger
-        self.n_threads = n_threads
-        self.db_fingerprints_properties = db_fingerprints_properties
-        self.db_parsed_fingerprints_properties = db_parsed_fingerprints_properties
-        self.raw_fingerprints_table_name = raw_fingerprints_table_name
-        self.fingerprints_parsed_table_name = fingerprints_parsed_table_name
+        self.logger = get_syslog_logger(settings.logging_settings.log_file_path)
+        self.n_partitions = n_partitions
+        self.peaks_db_config = peaks_db_config
+        self.proto_db_config = proto_db_config
         self.min_ts = 0  # TODO(karolpustelnik): change to None
 
     def protobuf_read_parse_save(self, ts_end, ts_start, batch_id):
@@ -121,8 +108,8 @@ class PeaksExtractor:
         # Fetch fingerprint data within the specified time range
         protobuf_df = get_protobuf(
             self.spark,
-            self.db_fingerprints_properties,
-            self.raw_fingerprints_table_name,
+            self.proto_db_config.connection_properties,
+            self.proto_db_config.main_data_table_name,
             ts_end,
             ts_start,
         ).withColumn(
@@ -133,6 +120,8 @@ class PeaksExtractor:
         protobuf_df = protobuf_df.where(
             F.col("start_time") <= ts_end.timestamp() * SECOND_TO_MS
         )
+        if self.n_partitions > 1:
+            protobuf_df = protobuf_df.repartition(self.n_partitions)
         protobuf_df_cnt = protobuf_df.count()
         if protobuf_df_cnt == 0:
             self.logger.warning(
@@ -163,8 +152,8 @@ class PeaksExtractor:
         protobuf_df = protobuf_df.withColumn("batchid", F.lit(batch_id))
         spark_write_to_db(
             protobuf_df,
-            self.db_parsed_fingerprints_properties,
-            self.fingerprints_parsed_table_name,
+            self.peaks_db_config.connection_properties,
+            self.peaks_db_config.main_data_table_name,
         )
 
         self.logger.debug(
@@ -184,7 +173,8 @@ class ContinuousBatchProcessor:
         logger (Logger): The logger object.
         run_date (datetime.date): Start date for the run.
         run_id (str): The identifier for the current run.
-        db_config (DBConfig): Database configuration with connection properties and output table name.
+        db_config (DBConfig): Database configuration with connection properties,
+        main data table name and output table name.
         batch_processor (function): The function used for processing batches.
         time_delta (int): Maximum time in seconds between max_ts and min_ts provided
         to batch_processor.
@@ -218,7 +208,8 @@ class ContinuousBatchProcessor:
             run_date (datetime.date): Start date for the run.
             run_id (str): The identifier for the current run, used as a filter
             in the output table.
-            db_config (DBConfig): Database configuration with connection properties and output table name.
+            db_config (DBConfig): Database configuration with connection properties,
+            main data table name and output table name.
             batch_processor (function): The function used for processing batches
             with signature (max_ts: datetime, min_ts: datetime, batch_id: str) ->
             (rows_returned: int, real_max_ts: datetime).
@@ -276,7 +267,7 @@ class ContinuousBatchProcessor:
         curr_row = (
             spark_read_from_db(
                 self.spark,
-                self.db_parsed_fingerprints_properties,
+                self.db_config.main_data_table_name,
                 sql_pattern=f"(select * from {self.db_config.output_table_name} where {where_cond})",
             )
             .orderBy("ts", ascending=False)
