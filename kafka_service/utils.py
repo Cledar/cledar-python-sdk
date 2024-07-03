@@ -12,4 +12,4 @@ def delivery_callback(error: KafkaError, msg: Message) -> None:
             "Message failed delivery.", extra={"error": error, "topic": msg.topic()}
         )
     else:
-        logger.info("Message delivered.", extra={"topic": msg.topic()})
+        logger.debug("Message delivered.", extra={"topic": msg.topic()})
