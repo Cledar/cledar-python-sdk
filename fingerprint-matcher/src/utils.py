@@ -5,24 +5,27 @@ import base64
 import math
 import logging
 import sys
+from dataclasses import dataclass
 import pandas as pd
 import src.app_data_pb2 as app_data_pb2
 from src.constants import SECOND_TO_MS
 
-from dataclasses import dataclass
-from datetime import datetime
-
 
 @dataclass
 class DBConfig:
+    """
+    Database configuration with connection properties, main data table name and
+    output table name.
+    """
+
     connection_properties: dict
-    output_table_name: str
     main_data_table_name: str
+    output_table_name: str
 
 
 @dataclass
 class ProcessedDataInfo:
-    data_ts: datetime
+    processed_up_to: datetime
     batch_ts: datetime
     batchid: int
     run_id: str
@@ -33,17 +36,22 @@ def add_processed_up_to_row(spark, db_config: DBConfig, data_info: ProcessedData
     Adds a new row to the 'output' table with information about the processed data.
 
     Parameters:
-        db_config (DBConfig): Database configuration with connection properties,
-        main data table name and output table name.
+        db_config (DBConfig): Database configuration.
         data_info (ProcessedDataInfo): Metadata for the processed data.
-
     Returns:
         None
     """
 
     schema = "ts timestamp, batch_ts timestamp, batchid integer, run_id string"
     df = spark.createDataFrame(
-        [(data_info.data_ts, data_info.batch_ts, data_info.batchid, data_info.run_id)],
+        [
+            (
+                data_info.processed_up_to,
+                data_info.batch_ts,
+                data_info.batchid,
+                data_info.run_id,
+            )
+        ],
         schema=schema,
     )
     spark_write_to_db(df, db_config.connection_properties, db_config.output_table_name)
@@ -153,19 +161,15 @@ def spark_write_to_db(df, properties, table_name):
     )
 
 
-def get_protobuf(
-    spark, db_fingerprints_properites, raw_fingerprints_table_name, ts_end, ts_start
-):
+def get_protobuf(spark, proto_db_config: DBConfig, ts_end, ts_start):
     """
     This function connects to a PostgreSQL database and retrieves packed
-    protobuf peaks data
-    that were created within the given time range.
+    protobuf peaks data that were created within the given time range.
     The time range is specified by the timestamps `ts_end` and `ts_start`.
 
     Args:
         spark (SparkSession): The Spark session object.
-        db_fingerprints_properites (dict): A dictionary of properties to pass
-        to the JDBC connection.
+        proto_db_config (DBConfig): Peaks database configuration.
         ts_end (datetime.datetime): The end timestamp of the time range (inclusive).
         ts_start (datetime.datetime): The start timestamp of the time range (exclusive).
 
@@ -182,14 +186,14 @@ def get_protobuf(
     select id, created_at, uuid, start_time, duration_ms, fingerprint, imei, device_id,
     ( '{ts_end_str}'::timestamptz ) as ts_end,
     ( '{ts_start_str}'::timestamptz ) as ts_start
-    from {raw_fingerprints_table_name}
+    from {proto_db_config.main_data_table_name}
     where created_at > ( '{ts_start_str}'::timestamptz )
     and created_at <= ( '{ts_end_str}'::timestamptz )
     and length(fingerprint) > 16
     """.format(
         ts_end_strr=ts_end_str, ts_start_str=ts_start_str
     )
-    return spark_read_from_db(spark, db_fingerprints_properites, sql_pattern)
+    return spark_read_from_db(spark, proto_db_config.connection_properties, sql_pattern)
 
 
 def parse_protobuf(df, batch_id):
@@ -260,23 +264,15 @@ def parse_protobuf(df, batch_id):
     return pd.DataFrame(results)
 
 
-# for processing parsed fingerprints
-
-
-def get_fingerprints_df(
-    spark, db_ref_peaks_properties, fingerprints_parsed_table_name, ts_end, ts_start
-):
+def get_miernik_fingerprints_df(spark, peaks_db_config: DBConfig, ts_end, ts_start):
     """
 
-    This function constructs and executes a SQL query to fetch fingerprints from the
-    `FINGERPRINTS_PARSED_TABLE_NAME` table within the specified timestamp range.
+    This function constructs and executes a SQL query to fetch fingerprints from peaks
+    database within the specified timestamp range.
 
     Args:
         spark (SparkSession): The Spark session object.
-        db_ref_peaks_properties (dict): A dictionary of properties
-        to pass to the JDBC connection.
-        fingerprints_parsed_table_name (str): The name of the table containing
-        the parsed fingerprints data.
+        peaks_db_config (DBConfig): Peaks database configuration.
         ts_end (int): The maximum timestamp value.
         ts_start (int): The minimum timestamp value.
 
@@ -288,10 +284,12 @@ def get_fingerprints_df(
     where_condition = f"""tts >= to_timestamp({int(ts_start)}) and tts < to_timestamp({int(ts_end)})"""
     sql_pattern = f"""
                 select * 
-                from {fingerprints_parsed_table_name}
+                from {peaks_db_config.main_data_table_name}
                 where {where_condition}
            """
-    fp_df = spark_read_from_db(spark, db_ref_peaks_properties, sql_pattern)
+    fp_df = spark_read_from_db(
+        spark, peaks_db_config.connection_properties, sql_pattern
+    )
     return fp_df
 
 
@@ -300,25 +298,18 @@ def get_fingerprints_df(
 
 def get_ref_fingerprints_df(
     spark,
-    db_ref_peaks_properties,
-    reference_peaks_table_name,
+    ref_db_config: DBConfig,
     ts_end,
     ts_start,
     reference_peaks_delay_s,
 ):
     """
-    Retrieves reference fingerprints data within a specified timestamp range.
-
     This function retrieves reference peaks data within the specified timestamp range
-    from a database by constructing a SQL query with a WHERE condition based
-    on the provided minimum and maximum timestamp values.
+    from a database by constructing a SQL query.
 
     Args:
         spark (SparkSession): The Spark session object.
-        db_ref_peaks_properties (dict): A dictionary of properties
-        to pass to the JDBC connection.
-        reference_peaks_table_name (str): The name of the table containing
-        the reference peaks data.
+        ref_db_config (DBConfig): Reference signals database configuration.
         ts_end (int): The end timestamp of the time range.
         ts_start (int): The start timestamp of the time range.
         reference_peaks_delay_s (int): The delay in seconds for the reference
@@ -335,9 +326,9 @@ def get_ref_fingerprints_df(
     """
     sql_pattern = f"""
                 select * 
-                from {reference_peaks_table_name}
+                from {ref_db_config.main_data_table_name}
                 where {where_condition}
            """
 
-    pk_df = spark_read_from_db(spark, db_ref_peaks_properties, sql_pattern)
+    pk_df = spark_read_from_db(spark, ref_db_config.connection_properties, sql_pattern)
     return pk_df
