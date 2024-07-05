@@ -35,6 +35,7 @@ class PeaksExtractorSettings(BaseSettings):
 
     time_delta_s: int = Field(alias="PEAKS_EXTRACTOR_TIME_DELTA_S")
     processing_time_s: int = Field(alias="PEAKS_EXTRACTOR_PROCESSING_TIME_S")
+    delay_s: int = Field(alias="PEAKS_EXTRACTOR_DELAY_S")
 
 
 class FingerprintsChunkerSettings(BaseSettings):
