@@ -1,7 +1,7 @@
 import threading
 import time
 from confluent_kafka import Producer, KafkaException
-from settings import Settings
+from stream_chunker.settings import Settings
 from .utils import build_topic, delivery_callback
 from .logger import logger
 from .exceptions import KafkaConnectionError, KafkaProducerNotConnectedError
