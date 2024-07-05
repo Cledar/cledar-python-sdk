@@ -63,7 +63,7 @@ class PeaksExtractor:
         self.n_partitions = n_partitions
         self.peaks_db_config = peaks_db_config
         self.proto_db_config = proto_db_config
-        self.min_ts = 0  # TODO(karolpustelnik): change to None
+        self.min_ts = 0
 
     def protobuf_read_parse_save(self, ts_end, ts_start, batch_id):
         """
@@ -98,6 +98,8 @@ class PeaksExtractor:
             ]
         )
         beg_ts = time.time()
+        # Update min_ts
+        self.min_ts = int(ts_start.timestamp())
         self.logger.debug(
             f"PeaksExtractor: Reading protobuf messages: {ts_start} - {ts_end}"
         )
@@ -122,7 +124,6 @@ class PeaksExtractor:
             self.logger.warning(
                 f"PeaksExtractor: No protobuf messages found in {ts_start} - {ts_end}"
             )
-            return 0, ts_end
         self.logger.debug(
             f"PeaksExtractor: Finished reading protobuf messages {ts_start} "
             f"- {ts_end}, count: {protobuf_df_cnt}"
@@ -140,8 +141,6 @@ class PeaksExtractor:
             f"PeaksExtractor: Extracted peaks {ts_start} - {ts_end}, "
             f"count: {protobuf_df_processed_cnt} in {time.time() - beg_ts} seconds"
         )
-        # Update min_ts
-        self.min_ts = int(ts_start.timestamp())
         # Write the processed data to the database
         protobuf_df = protobuf_df.withColumn("batchid", F.lit(batch_id))
         spark_write_to_db(
@@ -294,6 +293,7 @@ class ContinuousBatchProcessor:
                 f"current upper_bound: {upper_bound_ts_end}. "
                 f"If upper_bound is around year 1970, it means chunker is still "
                 f"waiting for peaks extractor to initialize min_ts."
+                f"Otherwise, it means that we are processing data faster than real time."
             )
             return
         self.logger.debug(
@@ -305,9 +305,7 @@ class ContinuousBatchProcessor:
         if rows_processed == 0:
             self.logger.warning(
                 f"{self.batch_processor.__qualname__}: No data to process. "
-                f"Waiting for new data."
             )
-            return
         self.daily_stats.append(
             (
                 ts_end,
@@ -544,7 +542,6 @@ class FingerprintsMatcher:
         miernik_df_cnt = miernik_df.count()
         if miernik_df_cnt == 0:
             self.logger.warning("FingerprintsMatcher: no fingerprints to match")
-            return
         self.logger.debug(
             f"FingerprintsMatcher: fingerprints input for match {miernik_df_cnt}"
         )
@@ -578,7 +575,6 @@ class FingerprintsMatcher:
                     f"{datetime.utcfromtimestamp(self.ref_window_start_ts)} "
                     f"{datetime.utcfromtimestamp(self.ref_window_end_ts)} "
                 )
-                return
             self.logger.debug(
                 f"FingerprintsMatcher: reference peaks "
                 f"{datetime.utcfromtimestamp(self.ref_window_start_ts)} "

@@ -3,6 +3,7 @@ import os
 import glob
 import shutil
 import time
+from datetime import datetime
 from src.data_processing import (
     PeaksExtractor,
     FingerprintsMatcher,
@@ -131,7 +132,10 @@ class TransformAndMatchPipeline:
             batch_processor=extract_function,
             time_delta=settings.peaks_extractor_settings.time_delta_s,
             processing_time=settings.peaks_extractor_settings.processing_time_s,
-            throttle_fun=lambda x: x - 10,
+            throttle_fun=lambda __curr_epoch: int(
+                datetime.utcnow().timestamp()
+                - settings.peaks_extractor_settings.delay_s
+            ),
         )
         fingerprints_chunker = ContinuousBatchProcessor(
             spark,
@@ -197,6 +201,14 @@ class TransformAndMatchPipeline:
             ts_start.timestamp(),
         )
         cnt = fingerprints_df.count()
+        if cnt == 0:
+            logger.warning(
+                "Chunker process: No miernik Fingerprints "
+                "for %s from %s (epoch-%s) ",
+                ts_end,
+                ts_start,
+                int(ts_start.timestamp()),
+            )
         logger.debug(
             "Chunker process: Loaded miernik Fingerprints "
             "for %s from %s (epoch-%s) "
