@@ -73,7 +73,10 @@ class KafkaProducer:
             self.producer.poll(0)
 
         except BufferError:
-            logger.warning("Buffer full, waiting for free space on the queue")
+            logger.warning(
+                "KafkaProducer buffer is full, waiting for buffer to empty.",
+                extra={"topic": topic},
+            )
             self.producer.poll(self.config.kafka_block_buffer_time_sec)
             self.producer.produce(
                 topic=topic, value=value, key=key, callback=delivery_callback
@@ -82,7 +85,7 @@ class KafkaProducer:
         except KafkaException as exception:
             logger.error(
                 "Failed to send message.",
-                extra={"exception": str(exception)},
+                extra={"exception": str(exception), "topic": topic},
             )
             raise exception
 
