@@ -1,5 +1,6 @@
+# pylint: disable=line-too-long
 from datetime import datetime
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings
 from dotenv import load_dotenv
 
@@ -28,14 +29,23 @@ DBFingerprintsSettings = create_database_settings("DB_FINGERPRINTS_")
 DBFingerprintsMatchedSettings = create_database_settings("DB_FINGERPRINTS_MATCHED_")
 
 
-class PeaksExtractorSettings(BaseSettings):
+class ProtobufProcessorSettings(BaseSettings):
     """
-    Class for storing settings for the peaks extractor.
+    Class for storing settings for the Protobuf processor.
     """
 
-    time_delta_s: int = Field(alias="PEAKS_EXTRACTOR_TIME_DELTA_S")
-    processing_time_s: int = Field(alias="PEAKS_EXTRACTOR_PROCESSING_TIME_S")
-    delay_s: int = Field(alias="PEAKS_EXTRACTOR_DELAY_S")
+    time_delta_s: int = Field(
+        alias="PROTOBUF_PROCESSOR_TIME_DELTA_S",
+        description="Time range for loading protobuf in seconds. E.g. if we set this to 300, the loader will load 300 seconds of protobuf to process",
+    )
+    processing_time_s: int = Field(
+        alias="PROTOBUF_PROCESSOR_PROCESSING_TIME_S",
+        description="Determines how often the loader stream should be triggered. If we set it too low, we may see spark warnings 'Current batch is falling behind' (we can safely ignore these warnings). If we set it too high, the stream may not be triggered often enough to process the data in real-time.",
+    )
+    delay_s: int = Field(
+        alias="PROTOBUF_PROCESSOR_DELAY_S",
+        description="Delay in seconds for protobuf processor to wait before processing protobuf. E.g. if we set this to 21600, the protobuf processor will wait 6 hours before processing so that any data that was buffered by mierniks can have time to be written to the fingerprints database.",
+    )
 
 
 class FingerprintsChunkerSettings(BaseSettings):
@@ -43,9 +53,18 @@ class FingerprintsChunkerSettings(BaseSettings):
     Class for storing settings for the fingerprint chunker.
     """
 
-    delay_s: int = Field(alias="FINGERPRINTS_CHUNKER_DELAY_S")
-    time_delta_s: int = Field(alias="FINGERPRINT_CHUNKER_TIME_DELTA_S")
-    processing_time_s: int = Field(alias="FINGERPRINT_CHUNKER_PROCESSING_TIME_S")
+    delay_s: int = Field(
+        alias="FINGERPRINTS_CHUNKER_DELAY_S",
+        description="Delay in seconds for chunker to wait before chunking fingerprints. The delay is needed to ensure that the peaks extracted by PeaksExtractor are written to the database before the chunker starts processing them.",
+    )
+    time_delta_s: int = Field(
+        alias="FINGERPRINT_CHUNKER_TIME_DELTA_S",
+        description="Time range for chunking fingerprints in seconds. E.g. if we set this to 450, the chunker will chunk 450 seconds of fingerprints.",
+    )
+    processing_time_s: int = Field(
+        alias="FINGERPRINT_CHUNKER_PROCESSING_TIME_S",
+        description="Determines how often should the chunker stream be triggered. If we set it too low, we may see spark warnings Current batch is falling behind (we can safely ignore these warnings). If we set it too high, the stream may not be triggered often enough to process the data in real-time.",
+    )
 
 
 class FingerprintsMatcherSettings(BaseSettings):
@@ -73,10 +92,22 @@ class StreamingSettings(BaseSettings):
     Class for storing settings for the streaming.
     """
 
-    stream_fingerprints_start_time: datetime = Field(
-        alias="STREAM_FINGERPRINTS_START_TIME"
+    stream_protobuf_start_time: datetime = Field(
+        alias="STREAM_PROTOBUF_START_TIME",
+        description="Determines where to start processing protobuf. ",
     )
-    stream_fingerprints_run_id: str = Field(alias="STREAM_FINGERPRINTS_RUN_ID")
+    stream_protobuf_run_id: str = Field(
+        alias="STREAM_PROTOBUF_RUN_ID",
+        description="Identifier of the run, it is added to OUTPUT_TABLE_NAME to tell protobuf processor where to continue after restarting with the same run_id. If we change the run_id to the one never used before the matching will start from the day selected in STREAM_PROTOBUF_START_TIME. Otherwise, it will continue from the last time in the OUTPUT_TABLE_NAME.",
+    )
+    stream_fingerprints_start_time: datetime = Field(
+        alias="STREAM_CHUNKER_START_TIME",
+        description="Determines where to start processing fingerprints. ",
+    )
+    stream_fingerprints_run_id: str = Field(
+        alias="STREAM_CHUNKER_RUN_ID",
+        description="Identifier of the run, it is added to OUTPUT_TABLE_NAME to tell chunker where to continue after restarting with the same run_id. If we change the run_id to the one never used before the matching will start from the day selected in STREAM_CHUNKER_START_TIME. Otherwise, it will continue from the last time in the OUTPUT_TABLE_NAME.",
+    )
 
     @field_validator("stream_fingerprints_start_time")
     @classmethod
@@ -84,6 +115,15 @@ class StreamingSettings(BaseSettings):
         if isinstance(value, str):
             return datetime.strptime(value, "%Y-%m-%dT%H:%M:%S")
         return value
+
+    @model_validator(mode="after")
+    @classmethod
+    def check_run_ids_different(cls, values):
+        if values.stream_protobuf_run_id == values.stream_fingerprints_run_id:
+            raise ValueError(
+                "stream_protobuf_run_id and stream_fingerprints_run_id must be different"
+            )
+        return values
 
 
 class TableNames(BaseSettings):
@@ -136,8 +176,8 @@ class Settings(BaseSettings):
     Class for storing settings for the matcher worker.
     """
 
-    peaks_extractor_settings: PeaksExtractorSettings = Field(
-        default_factory=PeaksExtractorSettings
+    protobuf_processor_settings: ProtobufProcessorSettings = Field(
+        default_factory=ProtobufProcessorSettings
     )
     fingerprint_chunker_settings: FingerprintsChunkerSettings = Field(
         default_factory=FingerprintsChunkerSettings

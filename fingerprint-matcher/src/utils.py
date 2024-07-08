@@ -1,4 +1,7 @@
-# pylint: skip-file
+# pylint: disable=line-too-long
+# pylint: disable=no-member
+# pylint: disable=too-many-locals
+from typing import Callable
 from datetime import datetime
 from logging.handlers import RotatingFileHandler
 import base64
@@ -7,8 +10,58 @@ import logging
 import sys
 from dataclasses import dataclass
 import pandas as pd
-import src.app_data_pb2 as app_data_pb2
+from src import app_data_pb2
 from src.constants import SECOND_TO_MS
+
+
+@dataclass
+class ProcessorConfig:
+    """
+    Configuration for the processor. It contains the time delta for loading data,
+    the processing time for spark stream, the delay before processing data,
+    the start time for processing data, the run ID, the batch processor function,
+    and the throttling function.
+    """
+
+    time_delta_s: int
+    """
+    Time range for loading data in seconds. E.g. if we set this to 300, the loader will 
+        load 300 seconds of data to process.
+    """
+    processing_time_s: int
+    """
+    Determines how often the loader stream should be triggered. 
+        If we set it too low, we may see spark warnings 'Current batch is falling 
+        behind' (we can safely ignore these warnings). If we set it too high, the stream 
+        may not be triggered often enough to process the data in real-time.
+    """
+    delay_s: int
+    """
+    Delay in seconds for the processor to wait before processing data.
+    """
+    stream_start_time: datetime
+    """
+    Determines where to start processing data.
+    """
+    stream_run_id: str
+    """
+    Identifier of the run, it is added to OUTPUT_TABLE_NAME to tell 
+        the processor where to continue after restarting with the same run_id. If we 
+        change the run_id to the one never used before the matching will start from the 
+        day selected in STREAM_PEAKS_EXTRACTOR_START_TIME. Otherwise, it will continue 
+        from the last time in the OUTPUT_TABLE_NAME.
+    """
+    batch_processor: Callable
+    """
+    The function used for processing the data.
+    """
+    throttling_function: Callable
+    """
+    A function that provides an upper bound time for processing 
+        data. Only data that is older than the upper bound time will be processed.
+        The upper bound changes dynamically based on the current time and timestamps of 
+        the already processed data.
+    """
 
 
 @dataclass
@@ -281,7 +334,10 @@ def get_miernik_fingerprints_df(spark, peaks_db_config: DBConfig, ts_end, ts_sta
         the specified time range.
 
     """
-    where_condition = f"""tts >= to_timestamp({int(ts_start)}) and tts < to_timestamp({int(ts_end)})"""
+    where_condition = f"""tts >= to_timestamp({ts_start}-90) and tts < to_timestamp({ts_end}+90)
+                        and ts >= {ts_start} and ts < {ts_end}"""
+    # unfortunately, filtering by tts is not enough, and we need to filter by ts as well
+    # we cannot filter only by ts, because for some reason this query takes too long to execute
     sql_pattern = f"""
                 select * 
                 from {peaks_db_config.main_data_table_name}
@@ -322,8 +378,10 @@ def get_ref_fingerprints_df(
 
     """
     where_condition = f"""
-        tts >= to_timestamp({ts_start-reference_peaks_delay_s}) and tts < to_timestamp({ts_end-reference_peaks_delay_s})
-    """
+        tts > to_timestamp({ts_start-reference_peaks_delay_s}-100) and tts < to_timestamp({ts_end-reference_peaks_delay_s}+100)
+        and ts >= {ts_start-reference_peaks_delay_s} and ts < {ts_end-reference_peaks_delay_s}"""
+    # unfortunately, filtering by tts is not enough, and we need to filter by ts as well
+    # we cannot filter only by ts, because for some reason this query takes too long to execute
     sql_pattern = f"""
                 select * 
                 from {ref_db_config.main_data_table_name}
