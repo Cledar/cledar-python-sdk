@@ -1,3 +1,5 @@
+# pylint: disable=logging-fstring-interpolation
+# pylint: disable=line-too-long
 # pylint: skip-file
 import time
 from datetime import datetime, timedelta
@@ -23,6 +25,7 @@ from src.utils import (
     ProcessedDataInfo,
     get_syslog_logger,
     DBConfig,
+    ProcessorConfig,
 )
 from src.constants import SECOND_TO_MS
 from src.settings import settings
@@ -164,29 +167,17 @@ class ContinuousBatchProcessor:
     Attributes:
         spark (SparkSession): The Spark session object.
         logger (Logger): The logger object.
-        run_date (datetime.date): Start date for the run.
-        run_id (str): The identifier for the current run.
         db_config (DBConfig): Database configuration.
-        batch_processor (function): The function used for processing batches.
-        time_delta (int): Maximum time in seconds between max_ts and min_ts provided
-        to batch_processor.
-        throttle_fun (function): A function that provides an upper bound for max_ts.
+        processor_config (ProcessorConfig): Processor configuration.
         monitor_stats (list): A list to store monitoring statistics.
         streaming_query: The Spark streaming query object.
-        processing_time (int): The processing time for the streaming query.
     """
 
     def __init__(
         self,
         spark,
-        logger,
-        run_date,
-        run_id,
         db_config: DBConfig,
-        batch_processor,
-        time_delta=300,
-        processing_time=30,
-        throttle_fun=lambda x: x,
+        processor_config: ProcessorConfig,
     ):
         """
         Initializes the ContinuousBatchProcessor with required parameters.
@@ -196,30 +187,14 @@ class ContinuousBatchProcessor:
 
         Parameters:
             spark (SparkSession): The Spark session object.
-            logger (Logger): The logger object.
-            run_date (datetime.date): Start date for the run.
-            run_id (str): The identifier for the current run, used as a filter
-            in the output table.
             db_config (DBConfig): Database configuration.
-            batch_processor (function): The function used for processing batches
-            with signature (max_ts: datetime, min_ts: datetime, batch_id: str) ->
-            (rows_returned: int, real_max_ts: datetime).
-            time_delta (int): Maximum time in seconds between max_ts and min_ts provided
-            to batch_processor.
-            processing_time (int): The processing time for the streaming query.
-            throttle_fun (function): A function giving an upper bound
-            for max_ts with signature (batch_epoch: int).
+            processor_config (ProcessorConfig): Processor configuration.
         """
         self.spark = spark
-        self.logger = logger
-        self.run_date = run_date
-        self.run_id = run_id
+        self.logger = get_syslog_logger(settings.logging_settings.log_file_path)
         self.daily_stats = []
-        self.batch_processor = batch_processor
-        self.time_delta = time_delta
-        self.processing_time = processing_time
-        self.throttle_fun = throttle_fun
         self.db_config = db_config
+        self.processor_config = processor_config
         self.streaming_query = None
 
     def _process_batch(self, batchdf, batchid):
@@ -242,19 +217,19 @@ class ContinuousBatchProcessor:
         rate_row = batchdf.orderBy("timestamp", ascending=False).first()
         if rate_row is None:
             self.logger.info(
-                f"{self.batch_processor.__qualname__}: Starting stream with run id: "
-                f"{self.run_id}."
+                f"{self.processor_config.batch_processor.__qualname__}: Starting stream with run id: "
+                f"{self.processor_config.stream_run_id}."
             )
             return
         batch_ts = rate_row["timestamp"]
         self.logger.info(
-            f"{self.batch_processor.__qualname__}: Processing batch {batchid} "
-            f"with run id {self.run_id} and timestamp {batch_ts}"
+            f"{self.processor_config.batch_processor.__qualname__}: Processing batch {batchid} "
+            f"with run id {self.processor_config.stream_run_id} and timestamp {batch_ts}"
         )
-        if self.run_id is None:
+        if self.processor_config.stream_run_id is None:
             where_cond = "run_id is null"
         else:
-            where_cond = f"run_id='{self.run_id}'"
+            where_cond = f"run_id='{self.processor_config.stream_run_id}'"
         curr_row = (
             spark_read_from_db(
                 self.spark,
@@ -266,15 +241,15 @@ class ContinuousBatchProcessor:
         )
         if curr_row is None:
             self.logger.info(
-                f"{self.batch_processor.__qualname__}: There are no records in table "
-                f"{self.db_config.output_table_name} for {self.run_id}. "
-                f"We start from the beginning i.e. {self.run_date}"
+                f"{self.processor_config.batch_processor.__qualname__}: There are no records in table "
+                f"{self.db_config.output_table_name} for {self.processor_config.stream_run_id}. "
+                f"We start from the beginning i.e. {self.processor_config.stream_start_time}"
             )
             data_info = ProcessedDataInfo(
-                processed_up_to=date_to_ts(self.run_date),
+                processed_up_to=date_to_ts(self.processor_config.stream_start_time),
                 batch_ts=batch_ts,
                 batchid=batchid,
-                run_id=self.run_id,
+                run_id=self.processor_config.stream_run_id,
             )
             add_processed_up_to_row(
                 self.spark,
@@ -284,27 +259,29 @@ class ContinuousBatchProcessor:
             return
         ts_start = curr_row["ts"]
         upper_bound_ts_end = datetime.fromtimestamp(
-            self.throttle_fun(batch_ts.timestamp())
+            self.processor_config.throttling_function(batch_ts.timestamp())
         )
-        ts_end = ts_start + timedelta(seconds=self.time_delta)
+        ts_end = ts_start + timedelta(seconds=self.processor_config.time_delta_s)
         if ts_end > upper_bound_ts_end:
             self.logger.debug(
-                f"{self.batch_processor.__qualname__}: Processing catched-up "
+                f"{self.processor_config.batch_processor.__qualname__}: Processing catched-up "
                 f"current upper_bound: {upper_bound_ts_end}. "
                 f"If upper_bound is around year 1970, it means chunker is still "
-                f"waiting for peaks extractor to initialize min_ts."
+                f"waiting for peaks extractor to initialize min_ts. "
                 f"Otherwise, it means that we are processing data faster than real time."
             )
             return
         self.logger.debug(
-            f"{self.batch_processor.__qualname__}: Processing batch {batchid} with "
-            f"run id {self.run_id} and timestamp {batch_ts}. Time range of dataframe: "
+            f"{self.processor_config.batch_processor.__qualname__}: Processing batch {batchid} with "
+            f"run id {self.processor_config.stream_run_id} and timestamp {batch_ts}. Time range of dataframe: "
             f"{ts_start} - {ts_end} current upper_bound: {upper_bound_ts_end}"
         )
-        rows_processed, _ = self.batch_processor(ts_end, ts_start, batchid)
+        rows_processed, _ = self.processor_config.batch_processor(
+            ts_end, ts_start, batchid
+        )
         if rows_processed == 0:
             self.logger.warning(
-                f"{self.batch_processor.__qualname__}: No data to process. "
+                f"{self.processor_config.batch_processor.__qualname__}: No data to process. "
             )
         self.daily_stats.append(
             (
@@ -317,7 +294,7 @@ class ContinuousBatchProcessor:
             processed_up_to=ts_end,
             batch_ts=batch_ts,
             batchid=batchid,
-            run_id=self.run_id,
+            run_id=self.processor_config.stream_run_id,
         )
         add_processed_up_to_row(
             self.spark,
@@ -325,8 +302,8 @@ class ContinuousBatchProcessor:
             data_info,
         )
         self.logger.info(
-            f"{self.batch_processor.__qualname__}: Batch {batchid} with "
-            f"run id {self.run_id} finished. Processed up to {ts_end}."
+            f"{self.processor_config.batch_processor.__qualname__}: Batch {batchid} with "
+            f"run id {self.processor_config.stream_run_id} finished. Processed up to {ts_end}."
         )
 
     def start(self):
@@ -346,7 +323,7 @@ class ContinuousBatchProcessor:
         # self.processing_time seconds.
         self.streaming_query = (
             once_per_second.writeStream.trigger(
-                processingTime=f"{self.processing_time} seconds"
+                processingTime=f"{self.processor_config.processing_time_s} seconds"
             )
             .outputMode("append")
             .foreachBatch(self._process_batch)

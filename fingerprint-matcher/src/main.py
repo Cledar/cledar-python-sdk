@@ -1,4 +1,4 @@
-# pylint: skip-file
+# pylint: disable=line-too-long
 import os
 import glob
 import shutil
@@ -15,8 +15,8 @@ from src.utils import (
     get_miernik_fingerprints_df,
     get_matcher_stream,
     DBConfig,
+    ProcessorConfig,
 )
-import pyspark
 from pyspark.sql import SparkSession
 
 
@@ -100,17 +100,17 @@ class TransformAndMatchPipeline:
             settings.table_names.fingerprints_parsed_table_name,
             settings.table_names.output_table_name,
         )
-        self.proto_db_config = DBConfig(
+        proto_db_config = DBConfig(
             settings.db_fingerprints_properties,
             settings.table_names.raw_fingerprints_table_name,
             None,
         )
-        self.ref_db_config = DBConfig(
+        ref_db_config = DBConfig(
             settings.db_ref_peaks_properties,
             settings.table_names.reference_peaks_table_name,
             None,
         )
-        self.matched_db_config = DBConfig(
+        matched_db_config = DBConfig(
             settings.db_fingerprints_matched_properties,
             settings.table_names.fingerprints_matched_table_name,
             None,
@@ -119,41 +119,47 @@ class TransformAndMatchPipeline:
             spark,
             settings.spark_settings.n_partitions,
             self.peaks_db_config,
-            self.proto_db_config,
+            proto_db_config,
         )
         extract_function = peaks_extractor.protobuf_read_parse_save
         # FIXME(karolpustelnik)
-        self.protobuf_processor = ContinuousBatchProcessor(
-            spark,
-            logger,
+        protobuf_processor_config = ProcessorConfig(
+            settings.protobuf_processor_settings.time_delta_s,
+            settings.protobuf_processor_settings.processing_time_s,
+            settings.protobuf_processor_settings.delay_s,
+            settings.streaming_settings.stream_protobuf_start_time,
+            settings.streaming_settings.stream_protobuf_run_id,
+            extract_function,
+            throttling_function=lambda __curr_epoch: int(
+                datetime.utcnow().timestamp()
+                - settings.protobuf_processor_settings.delay_s
+            ),
+        )
+        chunker_processor_config = ProcessorConfig(
+            settings.fingerprint_chunker_settings.time_delta_s,
+            settings.fingerprint_chunker_settings.processing_time_s,
+            settings.fingerprint_chunker_settings.delay_s,
             settings.streaming_settings.stream_fingerprints_start_time,
             settings.streaming_settings.stream_fingerprints_run_id,
+            self.chunker_batch_processor,
+            throttling_function=lambda __curr_epoch: peaks_extractor.min_ts
+            - settings.fingerprint_chunker_settings.delay_s,
+        )
+        self.protobuf_processor = ContinuousBatchProcessor(
+            spark,
             db_config=self.peaks_db_config,
-            batch_processor=extract_function,
-            time_delta=settings.peaks_extractor_settings.time_delta_s,
-            processing_time=settings.peaks_extractor_settings.processing_time_s,
-            throttle_fun=lambda __curr_epoch: int(
-                datetime.utcnow().timestamp()
-                - settings.peaks_extractor_settings.delay_s
-            ),
+            processor_config=protobuf_processor_config,
         )
         fingerprints_chunker = ContinuousBatchProcessor(
             spark,
-            logger,
-            settings.streaming_settings.stream_fingerprints_start_time,
-            settings.streaming_settings.stream_fingerprints_run_id + "_matcher",
             db_config=self.peaks_db_config,
-            batch_processor=self.chunker_batch_processor,
-            time_delta=settings.fingerprint_chunker_settings.time_delta_s,
-            processing_time=settings.fingerprint_chunker_settings.processing_time_s,
-            throttle_fun=lambda __curr_epoch: peaks_extractor.min_ts
-            - settings.fingerprint_chunker_settings.delay_s,
+            processor_config=chunker_processor_config,
         )
         self.fingerprint_matcher = FingerprintsMatcher(
             spark,
             settings.spark_settings.n_threads,
-            self.ref_db_config,
-            self.matched_db_config,
+            ref_db_config,
+            matched_db_config,
             settings.fingerprints_matcher_settings.reference_peaks_delay_s,
             settings.fingerprints_matcher_settings.ref_restart_freq,
             settings.fingerprints_matcher_settings.before_window_surplus,
