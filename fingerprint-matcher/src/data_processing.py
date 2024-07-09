@@ -28,7 +28,7 @@ from src.utils import (
     ProcessorConfig,
 )
 from src.constants import SECOND_TO_MS
-from src.settings import settings
+from src.settings import settings, FingerprintsMatcherSettings
 
 
 class PeaksExtractor:
@@ -354,12 +354,14 @@ class FingerprintsMatcher:
         n_partitions (int): The number of partitions to use for repartitioning.
         ref_db_config (DBConfig): Reference signals database configuration.
         matched_db_config (DBConfig): Matched fingerprints database configuration.
-        match_window_before (int): Time window before matching.
-        match_window_after (int): Time window after matching.
-        pk_restart_cnt (int): Counter for peak restarts.
-        min_ts (int): The minimum timestamp for matching.
-        max_ts (int): The maximum timestamp for matching.
-        ref_df (DataFrame): DataFrame to cache reference peaks.
+        matcher_settings (FingerprintsMatcherSettings): Fingerprints matcher settings.
+        ref_window_start_ts (int): The start timestamp of the reference signal window.
+        ref_window_end_ts (int): The end timestamp of the reference signal window.
+        ref_restart_idx (int): Counter variable that is used to determine when to
+            completely re-download the reference peaks data and when to only download
+            the new data that has been added since the last download.
+        ref_df (DataFrame): DataFrame containing reference signal fingerprints.
+
     """
 
     def __init__(
@@ -368,10 +370,7 @@ class FingerprintsMatcher:
         n_partitions,
         ref_db_config: DBConfig,
         matched_db_config: DBConfig,
-        reference_peaks_delay_s=0,
-        ref_restart_freq=20,
-        after_window_surplus=15,
-        before_window_surplus=15,
+        matcher_settings: FingerprintsMatcherSettings,
     ):
         """
         Initializes FingerprintsMatcher with default parameters.
@@ -381,25 +380,17 @@ class FingerprintsMatcher:
             n_partitions (int): The number of partitions to use for repartitioning.
             ref_db_config (DBConfig): Reference signals database configuration.
             matched_db_config (DBConfig): Matched fingerprints database configuration.
-            reference_peaks_delay_s (int): Delay for reference peaks.
-            pk_restart_cnt (int): Counter for peak restarts.
-            before_window_surplus (int): Time window before matching.
-            after_window_surplus (int): Time window after matching.
+            matcher_settings (FingerprintsMatcherSettings): Fingerprints matcher settings.
         """
         self.spark = spark
         self.logger = get_syslog_logger(settings.logging_settings.log_file_path)
         self.n_partitions = n_partitions
         self.ref_db_config = ref_db_config
         self.matched_db_config = matched_db_config
-        self.reference_peaks_delay_s = reference_peaks_delay_s
-        self.pk_min_ts = 0
-        self.pk_max_ts = 0
+        self.matcher_settings = matcher_settings
         self.ref_window_start_ts = 0
         self.ref_window_end_ts = 0
-        self.ref_restart_idx = ref_restart_freq
-        self.ref_restart_freq = ref_restart_freq
-        self.before_window_surplus = before_window_surplus
-        self.after_window_surplus = after_window_surplus
+        self.ref_restart_idx = matcher_settings.ref_restart_freq
         self.ref_df = None
 
     def _match_fingerprints(self, miernik_fp_df):
@@ -532,19 +523,24 @@ class FingerprintsMatcher:
         if (
             self.ref_restart_idx < 1
             or self.ref_df is None
-            or self.ref_window_end_ts < overlap_start_ts - self.before_window_surplus
+            or self.ref_window_end_ts
+            < overlap_start_ts - self.matcher_settings.before_window_surplus
         ):  # TODO(karolpustelnik):why is this necessary?
-            self.ref_window_start_ts = overlap_start_ts - self.before_window_surplus
-            self.ref_window_end_ts = overlap_end_ts + self.after_window_surplus
+            self.ref_window_start_ts = (
+                overlap_start_ts - self.matcher_settings.before_window_surplus
+            )
+            self.ref_window_end_ts = (
+                overlap_end_ts + self.matcher_settings.after_window_surplus
+            )
             self.ref_df = get_ref_fingerprints_df(
                 self.spark,
                 self.ref_db_config,
                 self.ref_window_end_ts,
                 self.ref_window_start_ts,
-                self.reference_peaks_delay_s,
+                self.matcher_settings.reference_peaks_delay_s,
             )
             self.ref_df.persist(StorageLevel.MEMORY_AND_DISK)
-            self.ref_restart_idx = self.ref_restart_freq
+            self.ref_restart_idx = self.matcher_settings.ref_restart_freq
             ref_df_cnt = self.ref_df.count()
             if ref_df_cnt == 0:
                 self.logger.warning(
@@ -560,15 +556,19 @@ class FingerprintsMatcher:
             )
         else:
             old_ref_window_end_ts = self.ref_window_end_ts
-            self.ref_window_start_ts = overlap_start_ts - self.before_window_surplus
-            self.ref_window_end_ts = overlap_end_ts + self.after_window_surplus
+            self.ref_window_start_ts = (
+                overlap_start_ts - self.matcher_settings.before_window_surplus
+            )
+            self.ref_window_end_ts = (
+                overlap_end_ts + self.matcher_settings.after_window_surplus
+            )
             self.ref_df = self.ref_df.filter(f"ts > {self.ref_window_start_ts}")
             new_ref_fingerprints = get_ref_fingerprints_df(
                 self.spark,
                 self.ref_db_config,
                 self.ref_window_end_ts,
                 old_ref_window_end_ts,
-                self.reference_peaks_delay_s,
+                self.matcher_settings.reference_peaks_delay_s,
             )
             self.ref_df = self.ref_df.union(new_ref_fingerprints)
             self.ref_df.persist(StorageLevel.MEMORY_AND_DISK)

@@ -160,10 +160,7 @@ class TransformAndMatchPipeline:
             settings.spark_settings.n_threads,
             ref_db_config,
             matched_db_config,
-            settings.fingerprints_matcher_settings.reference_peaks_delay_s,
-            settings.fingerprints_matcher_settings.ref_restart_freq,
-            settings.fingerprints_matcher_settings.before_window_surplus,
-            settings.fingerprints_matcher_settings.after_window_surplus,
+            settings.fingerprints_matcher_settings,
         )
         self.extractor_monitor = self.protobuf_processor.start()
         self.chunker_monitor = fingerprints_chunker.start()
