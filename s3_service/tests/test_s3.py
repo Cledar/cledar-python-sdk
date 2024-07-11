@@ -27,16 +27,14 @@ def test_init(boto3_client):
     )
 
 
-config = S3ServiceConfig(
-    s3_access_key=fake.password(),
-    s3_endpoint_url=fake.url(),
-    s3_secret_key=fake.password(),
-)
-
-
 @pytest.fixture(name="s3_service")
 @patch("boto3.client")
 def fixture_s3_service(client: Mock):
+    config = S3ServiceConfig(
+        s3_access_key=fake.password(),
+        s3_endpoint_url=fake.url(),
+        s3_secret_key=fake.password(),
+    )
     client.return_value(MagicMock())
     return S3Service(config)
 
@@ -45,14 +43,14 @@ def test_has_bucket_no_throw_true(s3_service):
     bucket_name = fake.name()
     result = s3_service.has_bucket(bucket=bucket_name)
 
-    assert result == True
+    assert result is True
 
 
 def test_has_bucket_no_throw_exits(s3_service):
     bucket_name = fake.name()
     result = s3_service.has_bucket(bucket=bucket_name, throw=False)
 
-    assert result == True
+    assert result is True
 
 
 def test_has_bucket_no_throw_not_exists(s3_service):
@@ -62,7 +60,7 @@ def test_has_bucket_no_throw_not_exists(s3_service):
     )
     result = s3_service.has_bucket(bucket=bucket_name)
 
-    assert result == False
+    assert result is False
 
 
 def test_has_bucket_throw_not_exists(s3_service):
