@@ -72,11 +72,26 @@ class FingerprintsMatcherSettings(BaseSettings):
     Class for storing settings for the fingerprint matcher.
     """
 
-    before_window_surplus: int = Field(alias="BEFORE_WINDOW_SURPLUS")
-    after_window_surplus: int = Field(alias="AFTER_WINDOW_SURPLUS")
-    processing_time_s: int = Field(alias="MATCHER_PROCESSING_TIME_S")
-    ref_restart_freq: int = Field(alias="REF_RESTART_FREQ")
-    reference_peaks_delay_s: int = Field(alias="REFERENCE_PEAKS_DELAY_S")
+    before_window_surplus: int = Field(
+        alias="BEFORE_WINDOW_SURPLUS",
+        description="Determines how much time before the miernik's fingerprints we should look for reference peaks.",
+    )
+    after_window_surplus: int = Field(
+        alias="AFTER_WINDOW_SURPLUS",
+        description="Determines how much time after the miernik's fingerprints we should look for reference peaks.",
+    )
+    processing_time_s: int = Field(
+        alias="MATCHER_PROCESSING_TIME_S",
+        description="Determines how often should the matcher stream be triggered. If we set it too low, we may see spark warnings 'Current batch is falling behind' (we can safely ignore these warnings). If we set it too high, the stream may not be triggered often enough to process the data in real-time.",
+    )
+    ref_restart_freq: int = Field(
+        alias="REF_RESTART_FREQ",
+        description="Counter variable that is used to determine when to completely re-download the reference peaks data and when to only download the new data that has been added since the last download.",
+    )
+    reference_peaks_delay_s: int = Field(
+        alias="REFERENCE_PEAKS_DELAY_S",
+        description="It is used to match time diffrences between UTC time and local time. For local testing set to 7200, otherwise 0.",
+    )
 
 
 class LoggingSettings(BaseSettings):
