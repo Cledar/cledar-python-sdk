@@ -43,6 +43,9 @@ class S3Service:
 
     def upload_buffer(self, buffer: io.BytesIO, bucket: str, key: str) -> None:
         try:
+            logger.debug(
+                "Uploading file from buffer", extra={"bucket": bucket, "key": key}
+            )
             self.client.upload_fileobj(
                 Fileobj=buffer,
                 Bucket=bucket,
@@ -60,6 +63,10 @@ class S3Service:
 
     def upload_file(self, file_path: str, bucket: str, key: str) -> None:
         try:
+            logger.debug(
+                "Uploading file from filesystem",
+                extra={"bucket": bucket, "key": key, "file_path": file_path},
+            )
             self.client.upload_file(
                 Filename=file_path,
                 Bucket=bucket,
