@@ -15,7 +15,6 @@ class S3ServiceConfig:
     s3_endpoint_url: str
     s3_access_key: str
     s3_secret_key: str
-    s3_reference_chunks_bucket: str | None = None
 
 
 class S3Service:
