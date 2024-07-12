@@ -1,6 +1,6 @@
-import dataclasses
 import io
 import logging
+from dataclasses import dataclass
 
 import boto3
 import botocore.exceptions
@@ -10,7 +10,7 @@ from .exceptions import RequiredBucketNotFoundException
 logger = logging.getLogger("s3_service")
 
 
-@dataclasses.dataclass
+@dataclass
 class S3ServiceConfig:
     s3_endpoint_url: str
     s3_access_key: str
