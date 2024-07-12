@@ -9,27 +9,29 @@ USER root
 
 # Update package lists and install necessary packages
 RUN apt-get update && apt-get install -y \
-    python3-venv \
     curl \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Upgrade pip to the latest version
-RUN python3 -m pip install --upgrade pip
+# Install Poetry
+RUN curl -sSL https://install.python-poetry.org | python3 -
 
-# Copy requirements file
-COPY requirements.txt /requirements.txt
+# Add Poetry to PATH
+ENV PATH="/root/.local/bin:$PATH"
 
-# Create temporary build directory
-RUN python3 -m venv /venv
+# Copy Poetry files
+COPY pyproject.toml poetry.lock /app/
 
-# Install dependencies to temporary build directory
-RUN /venv/bin/pip install -r /requirements.txt
+# Change working directory
+WORKDIR /app
+
+# Install dependencies using Poetry and let Poetry manage the virtual environment
+RUN poetry config virtualenvs.in-project true && poetry install --no-root && \
+    rm -rf /root/.cache/pypoetry /root/.cache/pip /tmp/* /var/tmp/*
 
 # Get Java dependencies
 RUN curl -o /tmp/postgresql-${POSTGRESQL_JDBC_VERSION}.jar \
     https://jdbc.postgresql.org/download/postgresql-${POSTGRESQL_JDBC_VERSION}.jar
-
 
 # Use the official Apache Spark image as the base image
 FROM apache/spark-py:${PYSPARK_VERSION}
@@ -43,8 +45,8 @@ USER root
 # Add a non-root user
 RUN adduser appuser
 
-# Copy Python dependencies
-COPY --from=builder /venv /venv
+# Copy Python dependencies and virtual environment
+COPY --from=builder /app /app
 COPY --from=builder /tmp/postgresql-${POSTGRESQL_JDBC_VERSION}.jar /opt/spark/jars/postgresql-${POSTGRESQL_JDBC_VERSION}.jar
 
 # Copy the source code into the working directory
@@ -61,8 +63,11 @@ RUN mkdir -p /matcher/src/logs && \
 # Switch to the non-root user
 USER appuser
 
+# Set the PATH to include the Poetry virtual environment
+ENV PATH="/app/.venv/bin:$PATH"
+
 # Set PYTHONPATH to directory with bundled PySPark
 ENV PYTHONPATH=/opt/spark/python:/opt/spark/python/lib/py4j-${PY4J_VERSION}-src.zip
 
 # Define the default command to run the application
-CMD ["/venv/bin/python3", "-m", "src.main"]
+CMD ["python", "-m", "src.main"]

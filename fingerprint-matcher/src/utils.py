@@ -1,6 +1,4 @@
 # pylint: disable=line-too-long
-# pylint: disable=no-member
-# pylint: disable=too-many-locals
 from typing import Callable
 from datetime import datetime
 from logging.handlers import RotatingFileHandler
@@ -249,6 +247,7 @@ def get_protobuf(spark, proto_db_config: DBConfig, ts_end, ts_start):
     return spark_read_from_db(spark, proto_db_config.connection_properties, sql_pattern)
 
 
+# pylint: disable=too-many-locals
 def parse_protobuf(df, batch_id):
     """
     Parses fingerprint data from a DataFrame and returns a processed DataFrame
@@ -282,6 +281,7 @@ def parse_protobuf(df, batch_id):
             row.created_at,
             row.imei,
         )
+        # pylint: disable=no-member
         pb = app_data_pb2.PeaksBatch()
         pb.ParseFromString(base64.b64decode(fingerprint))
         element_prev = 1

@@ -1,6 +1,5 @@
 # pylint: disable=logging-fstring-interpolation
 # pylint: disable=line-too-long
-# pylint: skip-file
 import time
 from datetime import datetime, timedelta
 import pyspark
@@ -344,6 +343,7 @@ class ContinuousBatchProcessor:
             self.streaming_query.stop()
 
 
+# pylint: disable=too-many-instance-attributes
 class FingerprintsMatcher:
     """
     Class for matching fingerprints with reference fingerprints.
@@ -364,6 +364,7 @@ class FingerprintsMatcher:
 
     """
 
+    # pylint: disable=too-many-arguments
     def __init__(
         self,
         spark,
@@ -517,7 +518,8 @@ class FingerprintsMatcher:
         overlap_start_ts = self.spark.sql(
             "select min(ts) minval from global_temp.fp"
         ).first()["minval"]
-        overlap_end_ts = miernik_df.agg(dict(ts="max")).collect()[0][0]
+        max_ts_dict = miernik_df.agg({"ts": "max"}).collect()
+        overlap_end_ts = max_ts_dict[0][0]
         if overlap_end_ts is None:
             return
         if (
