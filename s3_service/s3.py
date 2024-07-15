@@ -1,6 +1,6 @@
-import dataclasses
 import io
 import logging
+from dataclasses import dataclass
 
 import boto3
 import botocore.exceptions
@@ -10,12 +10,11 @@ from .exceptions import RequiredBucketNotFoundException
 logger = logging.getLogger("s3_service")
 
 
-@dataclasses.dataclass
+@dataclass
 class S3ServiceConfig:
     s3_endpoint_url: str
     s3_access_key: str
     s3_secret_key: str
-    s3_reference_chunks_bucket: str | None = None
 
 
 class S3Service:
@@ -44,6 +43,9 @@ class S3Service:
 
     def upload_buffer(self, buffer: io.BytesIO, bucket: str, key: str) -> None:
         try:
+            logger.debug(
+                "Uploading file from buffer", extra={"bucket": bucket, "key": key}
+            )
             self.client.upload_fileobj(
                 Fileobj=buffer,
                 Bucket=bucket,
@@ -61,6 +63,10 @@ class S3Service:
 
     def upload_file(self, file_path: str, bucket: str, key: str) -> None:
         try:
+            logger.debug(
+                "Uploading file from filesystem",
+                extra={"bucket": bucket, "key": key, "file_path": file_path},
+            )
             self.client.upload_file(
                 Filename=file_path,
                 Bucket=bucket,
