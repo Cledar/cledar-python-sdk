@@ -46,7 +46,7 @@ def test_has_bucket_no_throw_true(s3_service):
     assert result is True
 
 
-def test_has_bucket_no_throw_exits(s3_service):
+def test_has_bucket_no_throw_exists(s3_service):
     bucket_name = fake.name()
     result = s3_service.has_bucket(bucket=bucket_name, throw=False)
 
