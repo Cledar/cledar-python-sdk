@@ -71,6 +71,10 @@ class KafkaProducer:
                 topic=topic, value=value, key=key, callback=delivery_callback
             )
             self.producer.poll(0)
+            logger.debug(
+                "Sent message to topic.",
+                extra={"topic": topic, "value": value, "key": key},
+            )
 
         except BufferError:
             logger.warning(
@@ -108,6 +112,7 @@ class KafkaProducer:
             raise KafkaConnectionError from exception
 
     def shutdown(self) -> None:
+        logger.info("Shutting down KafkaProducer.")
         self._stop_event.set()
         if self.connection_check_thread is not None:
             self.connection_check_thread.join()  # Wait for the thread to finish
