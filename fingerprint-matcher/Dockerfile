@@ -1,23 +1,23 @@
 ARG PYSPARK_VERSION=v3.2.3
 ARG POSTGRESQL_JDBC_VERSION=42.7.3
 
-# Use base python image
 FROM apache/spark-py:${PYSPARK_VERSION} as builder
 
 # Switch to root for packages installation
 USER root
 
-# Update package lists and install necessary packages
+# Update package list and install dependencies
 RUN apt-get update && apt-get install -y \
     curl \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Poetry
-RUN curl -sSL https://install.python-poetry.org | python3 -
 
-# Add Poetry to PATH
-ENV PATH="/root/.local/bin:$PATH"
+# Install Poetry using pipx
+RUN pip install poetry==1.8.3
+
+# # Add Poetry to PATH
+# ENV PATH="/root/.local/bin:$PATH"
 
 # Copy Poetry files
 COPY pyproject.toml poetry.lock /app/
@@ -48,10 +48,12 @@ RUN adduser appuser
 COPY --from=builder /app /app
 COPY --from=builder /tmp/postgresql-${POSTGRESQL_JDBC_VERSION}.jar /opt/spark/jars/postgresql-${POSTGRESQL_JDBC_VERSION}.jar
 
-# Copy the source code into the working directory
 COPY ./src /app/src
 
 # Create a logs directory within the source directory
+RUN mkdir -p /app/src/logs && \
+    touch /app/src/logs/spark.log && \
+    chown -R appuser:appuser /app
 RUN mkdir -p /app/src/logs && \
     touch /app/src/logs/spark.log && \
     chown -R appuser:appuser /app
