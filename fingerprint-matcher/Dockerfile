@@ -14,14 +14,12 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Poetry
-RUN curl -sSL https://install.python-poetry.org | python3 -
-
-# Add Poetry to PATH
-ENV PATH="/root/.local/bin:$PATH"
+RUN pip install poetry==1.8.3
 
 # Copy Poetry files
 COPY pyproject.toml poetry.lock /app/
 
+# Change working directory
 WORKDIR /app
 
 # Install dependencies using Poetry and let Poetry manage the virtual environment
@@ -49,12 +47,15 @@ COPY --from=builder /app /app
 COPY --from=builder /tmp/postgresql-${POSTGRESQL_JDBC_VERSION}.jar /opt/spark/jars/postgresql-${POSTGRESQL_JDBC_VERSION}.jar
 
 # Copy the source code into the working directory
-COPY ./src /app/src
+COPY src /matcher/src
+
+# Set the working directory for the application
+WORKDIR /matcher
 
 # Create a logs directory within the source directory
-RUN mkdir -p /app/src/logs && \
-    touch /app/src/logs/spark.log && \
-    chown -R appuser:appuser /app
+RUN mkdir -p /matcher/src/logs && \
+    touch /matcher/src/logs/spark.log && \
+    chown -R appuser:appuser /matcher
 
 # Switch to the non-root user
 USER appuser
