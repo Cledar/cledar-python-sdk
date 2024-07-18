@@ -119,7 +119,3 @@ class KafkaProducer:
         logger.info("Flushing KafkaProducer.")
         self.producer.flush(-1)
         logger.info("KafkaProducer flushed.")
-
-
-def create_producer(config: Settings) -> KafkaProducer:
-    return KafkaProducer(config=config)
