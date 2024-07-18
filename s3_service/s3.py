@@ -35,10 +35,10 @@ class S3Service:
                 Bucket=bucket,
             )
             return True
-        except botocore.exceptions.ClientError as exc:
+        except botocore.exceptions.ClientError as exception:
             if throw:
-                logger.error("Bucket not found", extra={"bucket": bucket})
-                raise RequiredBucketNotFoundException() from exc
+                logger.exception("Bucket not found", extra={"bucket": bucket})
+                raise RequiredBucketNotFoundException from exception
             return False
 
     def upload_buffer(self, buffer: io.BytesIO, bucket: str, key: str) -> None:
@@ -55,9 +55,8 @@ class S3Service:
                 "Uploaded file from buffer", extra={"bucket": bucket, "key": key}
             )
         except Exception as exception:
-            logger.error(
+            logger.exception(
                 "Failed to upload buffer to S3",
-                extra={"exception": str(exception), "trace": exception.__traceback__},
             )
             raise exception
 
@@ -77,8 +76,7 @@ class S3Service:
                 extra={"bucket": bucket, "key": key, "file_path": file_path},
             )
         except Exception as exception:
-            logger.error(
+            logger.exception(
                 "Failed to upload file to S3",
-                extra={"exception": str(exception), "trace": exception.__traceback__},
             )
             raise exception

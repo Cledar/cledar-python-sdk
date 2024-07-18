@@ -45,10 +45,9 @@ class KafkaProducer:
             try:
                 self.check_connection()
                 logger.info("Kafka connection status: Connected.")
-            except KafkaConnectionError as exception:
-                logger.error(
+            except KafkaConnectionError:
+                logger.exception(
                     "Kafka connection check failed.",
-                    extra={"exception": str(exception)},
                 )
             time.sleep(self.config.kafka_connection_check_interval_sec)
 
@@ -87,9 +86,9 @@ class KafkaProducer:
             )
 
         except KafkaException as exception:
-            logger.error(
+            logger.exception(
                 "Failed to send message.",
-                extra={"exception": str(exception), "topic": topic},
+                extra={"topic": topic},
             )
             raise exception
 
@@ -105,9 +104,8 @@ class KafkaProducer:
                 timeout=self.config.kafka_connection_check_timeout_sec
             )
         except KafkaException as exception:
-            logger.error(
+            logger.exception(
                 "Failed to connect to Kafka servers.",
-                extra={"exception": str(exception)},
             )
             raise KafkaConnectionError from exception
 
