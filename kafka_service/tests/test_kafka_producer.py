@@ -6,7 +6,6 @@ from stream_chunker.kafka_service.kafka_producer import (
     KafkaProducer,
     KafkaProducerNotConnectedError,
     KafkaConnectionError,
-    create_producer,
 )
 from stream_chunker.kafka_service.utils import delivery_callback
 from stream_chunker.settings import Settings
@@ -29,10 +28,10 @@ def fixture_config():
 
 @pytest.fixture(name="producer")
 def fixture_producer(config):
-    return create_producer(config)
+    return KafkaProducer(config)
 
 
-def test_create_producer(config, producer):
+def test_init_producer(config, producer):
     assert isinstance(producer, KafkaProducer)
     assert producer.config == config
 
