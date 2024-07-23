@@ -1,6 +1,7 @@
-from dataclasses import dataclass
+from pydantic import ConfigDict
+from pydantic.dataclasses import dataclass
 from confluent_kafka import Consumer, KafkaException, KafkaError
-from chunk_transformer.settings import Settings
+from .schemas import KafkaConsumerSettings
 from .utils import build_topic
 from .schemas import KafkaMessage
 from .logger import logger
@@ -12,9 +13,9 @@ from .exceptions import (
 )
 
 
-@dataclass
+@dataclass(config=ConfigDict(arbitrary_types_allowed=True))
 class KafkaConsumer:
-    config: Settings
+    config: KafkaConsumerSettings
     consumer: Consumer | None = None
 
     def __post_init__(self) -> None:
