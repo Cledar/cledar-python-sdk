@@ -1,6 +1,6 @@
 from pydantic import ConfigDict
 from pydantic.dataclasses import dataclass
-from confluent_kafka import Consumer, KafkaException, KafkaError
+from confluent_kafka import Consumer, KafkaException
 from .schemas import KafkaConsumerSettings
 from .utils import build_topic
 from .schemas import KafkaMessage
@@ -9,7 +9,6 @@ from .exceptions import (
     KafkaConnectionError,
     KafkaConsumerNotConnectedError,
     KafkaConsumerError,
-    KafkaEndOfPartitionError,
 )
 
 
@@ -26,7 +25,7 @@ class KafkaConsumer:
             {
                 "bootstrap.servers": self.config.kafka_servers,
                 "enable.auto.commit": True,
-                "enable.partition.eof": True,
+                "enable.partition.eof": False,
                 "auto.commit.interval.ms": self.config.kafka_auto_commit_interval_ms,
                 "auto.offset.reset": self.config.kafka_reference_chunks_offset,
                 "group.id": self.config.kafka_group_id,
@@ -77,11 +76,6 @@ class KafkaConsumer:
                 return None
 
             if msg.error():
-                # pylint: disable-next=protected-access
-                if msg.error().code() == KafkaError._PARTITION_EOF:
-                    logger.error("End of partition.")
-                    raise KafkaEndOfPartitionError
-
                 logger.error(
                     "Consumer error.",
                     extra={"error": msg.error()},
