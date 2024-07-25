@@ -1,33 +1,30 @@
 from pydantic import ConfigDict
 from pydantic.dataclasses import dataclass
 from confluent_kafka import Consumer, KafkaException
-from .schemas import KafkaConsumerSettings
+from .base_kafka_client import BaseKafkaClient
+from .schemas import KafkaConsumerConfig
 from .utils import build_topic
 from .schemas import KafkaMessage
 from .logger import logger
 from .exceptions import (
-    KafkaConnectionError,
     KafkaConsumerNotConnectedError,
     KafkaConsumerError,
 )
 
 
 @dataclass(config=ConfigDict(arbitrary_types_allowed=True))
-class KafkaConsumer:
-    config: KafkaConsumerSettings
-    consumer: Consumer | None = None
-
-    def __post_init__(self) -> None:
-        logger.info("Initializing KafkaConsumer.", extra={"config": self.config})
+class KafkaConsumer(BaseKafkaClient):
+    config: KafkaConsumerConfig
+    client: Consumer | None = None
 
     def connect(self) -> None:
-        self.consumer = Consumer(
+        self.client = Consumer(
             {
                 "bootstrap.servers": self.config.kafka_servers,
                 "enable.auto.commit": True,
                 "enable.partition.eof": False,
                 "auto.commit.interval.ms": self.config.kafka_auto_commit_interval_ms,
-                "auto.offset.reset": self.config.kafka_reference_chunks_offset,
+                "auto.offset.reset": self.config.kafka_offset,
                 "group.id": self.config.kafka_group_id,
             }
         )
@@ -36,9 +33,10 @@ class KafkaConsumer:
             "Connected to Kafka servers.",
             extra={"kafka_servers": self.config.kafka_servers},
         )
+        self.start_connection_check_thread()
 
     def subscribe(self, topics: list[str]) -> None:
-        if self.consumer is None:
+        if self.client is None:
             logger.error(
                 "KafkaConsumer is not connected. Call 'connect' first.",
                 extra={"topics": topics},
@@ -55,22 +53,22 @@ class KafkaConsumer:
                 "Subscribing to topics.",
                 extra={"topics": topics},
             )
-            self.consumer.subscribe(topics)
+            self.client.subscribe(topics)
 
         except KafkaException as exception:
-            logger.error(
+            logger.exception(
                 "Failed to subscribe to topics.",
-                extra={"exception": str(exception), "topics": topics},
+                extra={"topics": topics},
             )
             raise exception
 
     def consume_next(self) -> KafkaMessage | None:
-        if self.consumer is None:
+        if self.client is None:
             logger.error("KafkaConsumer is not connected. Call 'connect' first.")
             raise KafkaConsumerNotConnectedError
 
         try:
-            msg = self.consumer.poll(self.config.kafka_block_consumer_time_sec)
+            msg = self.client.poll(self.config.kafka_block_consumer_time_sec)
 
             if msg is None:
                 return None
@@ -97,31 +95,5 @@ class KafkaConsumer:
             )
 
         except KafkaException as exception:
-            logger.error(
-                "Failed to consume message.",
-                extra={"exception": str(exception)},
-            )
+            logger.exception("Failed to consume message.")
             raise exception
-
-    def check_connection(self) -> None:
-        """
-        when the broker is not available (or the address is wrong)
-        the 'connection refused' error is not caught
-        https://github.com/confluentinc/confluent-kafka-python/issues/941
-        the below is far-from-perfect workaround handling that
-        """
-        try:
-            self.consumer.list_topics(
-                timeout=self.config.kafka_connection_check_timeout_sec
-            )
-        except KafkaException as exception:
-            logger.error(
-                "Failed to connect to Kafka servers.",
-                extra={"exception": str(exception)},
-            )
-            raise KafkaConnectionError from exception
-
-    def shutdown(self) -> None:
-        logger.info("Closing KafkaConsumer.")
-        self.consumer.close()
-        logger.info("KafkaConsumer closed.")
