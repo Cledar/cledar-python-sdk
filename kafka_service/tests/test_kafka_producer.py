@@ -1,13 +1,14 @@
 # pylint: disable=unused-argument, protected-access
 from unittest.mock import patch, MagicMock
 import pytest
-from confluent_kafka import KafkaException
+from confluent_kafka import KafkaException, Producer
 from stream_chunker.kafka_service.kafka_producer import (
     KafkaProducer,
     KafkaProducerNotConnectedError,
-    KafkaConnectionError,
 )
+from stream_chunker.kafka_service.base_kafka_client import KafkaConnectionError
 from stream_chunker.kafka_service.utils import delivery_callback
+from stream_chunker.kafka_service.schemas import KafkaProducerConfig
 from stream_chunker.settings import Settings
 
 # Constants for test
@@ -20,9 +21,19 @@ mock_producer_path = "stream_chunker.kafka_service.kafka_producer.Producer"
 
 @pytest.fixture(name="config")
 def fixture_config():
-    return Settings(
+    settings = Settings(
         _env_file="stream_chunker/kafka_service/tests/.env.test.kafka",
         _env_file_encoding="utf-8",
+    )
+    return KafkaProducerConfig(
+        kafka_servers=settings.kafka_servers,
+        kafka_group_id=settings.kafka_group_id,
+        kafka_topic_prefix=settings.kafka_topic_prefix,
+        kafka_block_buffer_time_sec=settings.kafka_block_buffer_time_sec,
+        kafka_connection_check_timeout_sec=settings.kafka_connection_check_timeout_sec,
+        kafka_connection_check_interval_sec=(
+            settings.kafka_connection_check_interval_sec
+        ),
     )
 
 
@@ -120,6 +131,8 @@ def test_start_connection_check_thread(
 @patch("threading.Thread")
 @patch.object(KafkaProducer, "check_connection")
 def test_shutdown(mock_check_connection, mock_thread, mock_producer, producer):
+    mock_producer_instance = MagicMock(spec=Producer)
+    mock_producer.return_value = mock_producer_instance
     mock_thread_instance = MagicMock()
     mock_thread.return_value = mock_thread_instance
 
@@ -127,6 +140,6 @@ def test_shutdown(mock_check_connection, mock_thread, mock_producer, producer):
     producer.start_connection_check_thread()
     producer.shutdown()
 
-    producer.producer.flush.assert_called_once()
+    mock_producer_instance.flush.assert_called_once()
     mock_thread_instance.join.assert_called_once()
     assert producer._stop_event.is_set()
