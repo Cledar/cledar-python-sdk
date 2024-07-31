@@ -1,10 +1,12 @@
 import io
 import logging
 from dataclasses import dataclass
-
 import boto3
 import botocore.exceptions
-
+from stream_chunker.monitoring_service.chunker_metrics import (
+    s3_requests,
+    s3_requests_latency,
+)
 from .exceptions import RequiredBucketNotFoundException
 
 logger = logging.getLogger("s3_service")
@@ -30,53 +32,48 @@ class S3Service:
         logger.info("Initiated client", extra={"endpoint_url": config.s3_endpoint_url})
 
     def has_bucket(self, bucket: str, throw=False) -> bool:
-        try:
-            self.client.head_bucket(
-                Bucket=bucket,
-            )
-            return True
-        except botocore.exceptions.ClientError as exception:
-            if throw:
-                logger.exception("Bucket not found", extra={"bucket": bucket})
-                raise RequiredBucketNotFoundException from exception
-            return False
+        with s3_requests_latency.labels(method="head_bucket").time():
+            try:
+                self.client.head_bucket(Bucket=bucket)
+                s3_requests.labels(method="head_bucket", status="success").inc()
+                return True
+            except botocore.exceptions.ClientError as exception:
+                s3_requests.labels(method="head_bucket", status="failure").inc()
+                if throw:
+                    logger.exception("Bucket not found", extra={"bucket": bucket})
+                    raise RequiredBucketNotFoundException from exception
+                return False
 
     def upload_buffer(self, buffer: io.BytesIO, bucket: str, key: str) -> None:
-        try:
-            logger.debug(
-                "Uploading file from buffer", extra={"bucket": bucket, "key": key}
-            )
-            self.client.upload_fileobj(
-                Fileobj=buffer,
-                Bucket=bucket,
-                Key=key,
-            )
-            logger.debug(
-                "Uploaded file from buffer", extra={"bucket": bucket, "key": key}
-            )
-        except Exception as exception:
-            logger.exception(
-                "Failed to upload buffer to S3",
-            )
-            raise exception
+        with s3_requests_latency.labels(method="upload_buffer").time():
+            try:
+                logger.debug(
+                    "Uploading file from buffer", extra={"bucket": bucket, "key": key}
+                )
+                self.client.upload_fileobj(Fileobj=buffer, Bucket=bucket, Key=key)
+                s3_requests.labels(method="upload_buffer", status="success").inc()
+                logger.debug(
+                    "Uploaded file from buffer", extra={"bucket": bucket, "key": key}
+                )
+            except Exception as exception:
+                s3_requests.labels(method="upload_buffer", status="failure").inc()
+                logger.exception("Failed to upload buffer to S3")
+                raise exception
 
     def upload_file(self, file_path: str, bucket: str, key: str) -> None:
-        try:
-            logger.debug(
-                "Uploading file from filesystem",
-                extra={"bucket": bucket, "key": key, "file_path": file_path},
-            )
-            self.client.upload_file(
-                Filename=file_path,
-                Bucket=bucket,
-                Key=key,
-            )
-            logger.debug(
-                "Uploaded file from filesystem",
-                extra={"bucket": bucket, "key": key, "file_path": file_path},
-            )
-        except Exception as exception:
-            logger.exception(
-                "Failed to upload file to S3",
-            )
-            raise exception
+        with s3_requests_latency.labels(method="upload_file").time():
+            try:
+                logger.debug(
+                    "Uploading file from filesystem",
+                    extra={"bucket": bucket, "key": key, "file_path": file_path},
+                )
+                self.client.upload_file(Filename=file_path, Bucket=bucket, Key=key)
+                s3_requests.labels(method="upload_file", status="success").inc()
+                logger.debug(
+                    "Uploaded file from filesystem",
+                    extra={"bucket": bucket, "key": key, "file_path": file_path},
+                )
+            except Exception as exception:
+                s3_requests.labels(method="upload_file", status="failure").inc()
+                logger.exception("Failed to upload file to S3")
+                raise exception
