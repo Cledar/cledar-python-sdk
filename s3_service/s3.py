@@ -32,17 +32,16 @@ class S3Service:
         logger.info("Initiated client", extra={"endpoint_url": config.s3_endpoint_url})
 
     def has_bucket(self, bucket: str, throw=False) -> bool:
-        with s3_requests_latency.labels(method="head_bucket").time():
-            try:
-                self.client.head_bucket(Bucket=bucket)
-                s3_requests.labels(method="head_bucket", status="success").inc()
-                return True
-            except botocore.exceptions.ClientError as exception:
-                s3_requests.labels(method="head_bucket", status="failure").inc()
-                if throw:
-                    logger.exception("Bucket not found", extra={"bucket": bucket})
-                    raise RequiredBucketNotFoundException from exception
-                return False
+        try:
+            self.client.head_bucket(Bucket=bucket)
+            s3_requests.labels(method="has_bucket", status="success").inc()
+            return True
+        except botocore.exceptions.ClientError as exception:
+            s3_requests.labels(method="has_bucket", status="failure").inc()
+            if throw:
+                logger.exception("Bucket not found", extra={"bucket": bucket})
+                raise RequiredBucketNotFoundException from exception
+            return False
 
     def upload_buffer(self, buffer: io.BytesIO, bucket: str, key: str) -> None:
         with s3_requests_latency.labels(method="upload_buffer").time():
