@@ -1,1 +1,0 @@
-SECOND_TO_MS = 1000

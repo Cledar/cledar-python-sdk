@@ -1,8 +1,0 @@
-# Meson build directories
-builddir/
-debug/
-release/
-
-# Ignore subprojects except .wrap files
-subprojects/*
-!subprojects/*.wrap
