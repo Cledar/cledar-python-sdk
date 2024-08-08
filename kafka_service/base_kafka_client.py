@@ -6,6 +6,7 @@ from .schemas import KafkaProducerConfig
 from .logger import logger
 from .exceptions import (
     KafkaConnectionError,
+    KafkaProducerNotConnectedError,
 )
 
 
@@ -49,10 +50,17 @@ class BaseKafkaClient:
         https://github.com/confluentinc/confluent-kafka-python/issues/941
         the below is far-from-perfect workaround handling that
         """
+        if self.client is None:
+            logger.error(
+                "KafkaProducer is not connected. Call 'connect' first.",
+            )
+            raise KafkaProducerNotConnectedError
+
         try:
             self.client.list_topics(
                 timeout=self.config.kafka_connection_check_timeout_sec
             )
+
         except KafkaException as exception:
             logger.exception("Failed to connect to Kafka servers.")
             raise KafkaConnectionError from exception

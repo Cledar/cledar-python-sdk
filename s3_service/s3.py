@@ -1,3 +1,4 @@
+from typing import Any
 import io
 import logging
 from dataclasses import dataclass
@@ -20,7 +21,7 @@ class S3ServiceConfig:
 
 
 class S3Service:
-    client: any = None
+    client: Any = None
 
     def __init__(self, config: S3ServiceConfig) -> None:
         self.client = boto3.client(
