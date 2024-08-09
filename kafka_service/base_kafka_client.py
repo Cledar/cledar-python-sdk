@@ -66,10 +66,12 @@ class BaseKafkaClient:
             raise KafkaConnectionError from exception
 
     def shutdown(self) -> None:
+        logger.info("Closing %s...", self.__class__.__name__)
         self._stop_event.set()
         if self.connection_check_thread is not None:
             self.connection_check_thread.join()
-        logger.info(f"Closing {self.__class__.__name__}.")
+            logger.info("Stopped connection check thread.")
         if isinstance(self.client, Producer):
             self.client.flush(-1)
-        logger.info(f"{self.__class__.__name__} closed.")
+            logger.info("%s flushed.", self.__class__.__name__)
+        logger.info("%s closed.", self.__class__.__name__)
