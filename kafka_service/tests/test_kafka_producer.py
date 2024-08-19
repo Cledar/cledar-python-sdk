@@ -16,13 +16,13 @@ TEST_TOPIC = "test-topic"
 TEST_VALUE = "test-value"
 TEST_KEY = "test-key"
 
-mock_producer_path = "stream_chunker.kafka_service.kafka_producer.Producer"
+mock_producer_path = "kafka_service.kafka_producer.Producer"
 
 
 @pytest.fixture(name="config")
 def fixture_config():
     settings = Settings(
-        _env_file="stream_chunker/kafka_service/tests/.env.test.kafka",
+        _env_file="kafka_service/tests/.env.test.kafka",
         _env_file_encoding="utf-8",
     )
     return KafkaProducerConfig(

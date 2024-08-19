@@ -1,19 +1,20 @@
 import threading
 from pydantic import ConfigDict
 from pydantic.dataclasses import dataclass
-from confluent_kafka import Producer, KafkaException
-from .schemas import KafkaProducerConfig
+from confluent_kafka import Producer, Consumer, KafkaException
+from .schemas import KafkaProducerConfig, KafkaConsumerConfig
 from .logger import logger
 from .exceptions import (
     KafkaConnectionError,
     KafkaProducerNotConnectedError,
+    KafkaConsumerNotConnectedError,
 )
 
 
 @dataclass(config=ConfigDict(arbitrary_types_allowed=True))
 class BaseKafkaClient:
-    config: KafkaProducerConfig
-    client: Producer | None = None
+    config: KafkaProducerConfig | KafkaConsumerConfig
+    client: Producer | Consumer | None = None
     connection_check_thread: threading.Thread | None = None
     _stop_event: threading.Event = threading.Event()
 
@@ -52,15 +53,17 @@ class BaseKafkaClient:
         """
         if self.client is None:
             logger.error(
-                "KafkaProducer is not connected. Call 'connect' first.",
+                f"{self.__class__.__name__} is not connected. Call 'connect' first.",
             )
-            raise KafkaProducerNotConnectedError
-
+            raise (
+                KafkaProducerNotConnectedError
+                if isinstance(self.config, KafkaProducerConfig)
+                else KafkaConsumerNotConnectedError
+            )
         try:
             self.client.list_topics(
                 timeout=self.config.kafka_connection_check_timeout_sec
             )
-
         except KafkaException as exception:
             logger.exception("Failed to connect to Kafka servers.")
             raise KafkaConnectionError from exception
@@ -74,4 +77,6 @@ class BaseKafkaClient:
         if isinstance(self.client, Producer):
             self.client.flush(-1)
             logger.info("%s flushed.", self.__class__.__name__)
+        elif isinstance(self.client, Consumer):
+            self.client.close()
         logger.info("%s closed.", self.__class__.__name__)
