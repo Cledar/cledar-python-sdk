@@ -1,11 +1,10 @@
 import io
 from unittest.mock import MagicMock, Mock, patch
-
 import botocore.exceptions
 import pytest
 from faker import Faker
-from stream_chunker.s3_service.exceptions import RequiredBucketNotFoundException
-from stream_chunker.s3_service.s3 import S3Service, S3ServiceConfig
+from chunk_transformer.s3_service.exceptions import RequiredBucketNotFoundException
+from chunk_transformer.s3_service.s3 import S3Service, S3ServiceConfig
 
 fake = Faker()
 
@@ -106,3 +105,38 @@ def test_upload_file_exception(s3_service):
         Bucket=bucket_name,
         Key=key,
     )
+
+
+def test_read_file_exception(s3_service):
+    bucket_name = fake.name()
+    key = fake.name()
+
+    s3_service.client.get_object.side_effect = Exception()
+
+    with pytest.raises(Exception):
+        s3_service.read_file(bucket=bucket_name, key=key)
+
+    s3_service.client.get_object.assert_called_once_with(
+        Bucket=bucket_name,
+        Key=key,
+    )
+
+
+def test_verify_and_upload_test_file(s3_service):
+    bucket = fake.name()
+    test_bucket = fake.name()
+    s3_service.client.list_buckets.return_value = {"Buckets": [{"Name": test_bucket}]}
+    s3_service.has_bucket = MagicMock()
+    s3_service.upload_buffer = MagicMock()
+    s3_service.read_file = MagicMock()
+
+    with patch("io.BytesIO", new=MagicMock()) as MockBytesIO:
+        mock_buffer = MockBytesIO.return_value
+        s3_service.verify_and_upload_test_file(bucket, throw=True)
+        s3_service.client.list_buckets.assert_called_once()
+        s3_service.has_bucket.assert_called_once_with(bucket, throw=True)
+        s3_service.upload_buffer.assert_called_once()
+        s3_service.read_file.assert_called_once()
+        mock_buffer.write.assert_called()
+        mock_buffer.seek.assert_called_with(0)
+        mock_buffer.close.assert_called()

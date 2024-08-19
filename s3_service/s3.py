@@ -2,6 +2,9 @@ from typing import Any
 import io
 import logging
 from dataclasses import dataclass
+from datetime import datetime
+from uuid import uuid4
+import traceback
 import boto3
 import botocore.exceptions
 from stream_chunker.monitoring_service.chunker_metrics import (
@@ -60,6 +63,20 @@ class S3Service:
                 logger.exception("Failed to upload buffer to S3")
                 raise exception
 
+    def read_file(self, bucket: str, key: str) -> bytes:
+        try:
+            logger.debug("Reading file from S3", extra={"bucket": bucket, "key": key})
+            response = self.client.get_object(Bucket=bucket, Key=key)
+            content = response["Body"].read()
+            logger.debug("Read file from S3", extra={"bucket": bucket, "key": key})
+            return content
+        except Exception as exception:
+            logger.error(
+                "Failed to read file from S3",
+                extra={"exception": str(exception), "trace": traceback.format_exc()},
+            )
+            raise exception
+
     def upload_file(self, file_path: str, bucket: str, key: str) -> None:
         with s3_requests_latency.labels(method="upload_file").time():
             try:
@@ -77,3 +94,35 @@ class S3Service:
                 s3_requests.labels(method="upload_file", status="failure").inc()
                 logger.exception("Failed to upload file to S3")
                 raise exception
+
+    def verify_and_upload_test_file(self, bucket: str, throw: bool = False):
+        logger.info("Starting verification and upload of test file.")
+        buckets = self.client.list_buckets().get("Buckets", [])
+        logger.info(f"Number of buckets: {len(buckets)}")
+        buffer = io.BytesIO()
+        try:
+            buffer.write(f"test contents {datetime.now()}".encode("utf-8"))
+            buffer.seek(0)
+            logger.info("Buffer created and written to.")
+            self.has_bucket(bucket, throw=throw)
+            test_key = uuid4().hex
+            self.upload_buffer(
+                buffer=buffer,
+                bucket=bucket,
+                key=test_key,
+            )
+            self.read_file(bucket=bucket, key=test_key)
+        except Exception as exception:
+            logger.error(
+                "An error occurred during the verification and upload process",
+                extra={
+                    "exception": str(exception),
+                    "trace": traceback.format_exc(),
+                },
+            )
+            raise exception
+        finally:
+            buffer.close()
+            logger.info("Buffer closed.")
+
+        logger.info("Verification and upload of test file completed.")
