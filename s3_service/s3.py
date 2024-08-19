@@ -7,10 +7,10 @@ from uuid import uuid4
 import traceback
 import boto3
 import botocore.exceptions
-from stream_chunker.monitoring_service.chunker_metrics import (
+from .chunker_metrics import (
     s3_requests,
     s3_requests_latency,
-)
+) #  TODO: Add this metrics
 from .exceptions import RequiredBucketNotFoundException
 
 logger = logging.getLogger("s3_service")

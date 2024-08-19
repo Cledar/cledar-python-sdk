@@ -2,14 +2,13 @@
 from unittest.mock import patch, MagicMock
 import pytest
 from confluent_kafka import KafkaException, Producer
-from stream_chunker.kafka_service.kafka_producer import (
+from kafka_service.kafka_producer import (
     KafkaProducer,
     KafkaProducerNotConnectedError,
 )
-from stream_chunker.kafka_service.base_kafka_client import KafkaConnectionError
-from stream_chunker.kafka_service.utils import delivery_callback
-from stream_chunker.kafka_service.schemas import KafkaProducerConfig
-from stream_chunker.settings import Settings
+from kafka_service.base_kafka_client import KafkaConnectionError
+from kafka_service.utils import delivery_callback
+from kafka_service.schemas import KafkaProducerConfig
 
 # Constants for test
 TEST_TOPIC = "test-topic"
@@ -21,19 +20,13 @@ mock_producer_path = "kafka_service.kafka_producer.Producer"
 
 @pytest.fixture(name="config")
 def fixture_config():
-    settings = Settings(
-        _env_file="kafka_service/tests/.env.test.kafka",
-        _env_file_encoding="utf-8",
-    )
     return KafkaProducerConfig(
-        kafka_servers=settings.kafka_servers,
-        kafka_group_id=settings.kafka_group_id,
-        kafka_topic_prefix=settings.kafka_topic_prefix,
-        kafka_block_buffer_time_sec=settings.kafka_block_buffer_time_sec,
-        kafka_connection_check_timeout_sec=settings.kafka_connection_check_timeout_sec,
-        kafka_connection_check_interval_sec=(
-            settings.kafka_connection_check_interval_sec
-        ),
+        kafka_servers="localhost:9092",
+        kafka_group_id="test-group",
+        kafka_topic_prefix="test.",
+        kafka_block_buffer_time_sec=10,
+        kafka_connection_check_timeout_sec=1,
+        kafka_connection_check_interval_sec=60,
     )
 
 

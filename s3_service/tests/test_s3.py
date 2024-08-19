@@ -3,8 +3,8 @@ from unittest.mock import MagicMock, Mock, patch
 import botocore.exceptions
 import pytest
 from faker import Faker
-from chunk_transformer.s3_service.exceptions import RequiredBucketNotFoundException
-from chunk_transformer.s3_service.s3 import S3Service, S3ServiceConfig
+from s3_service.exceptions import RequiredBucketNotFoundException
+from s3_service.s3 import S3Service, S3ServiceConfig
 
 fake = Faker()
 

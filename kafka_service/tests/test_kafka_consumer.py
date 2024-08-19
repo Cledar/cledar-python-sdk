@@ -2,15 +2,14 @@
 from unittest.mock import patch, MagicMock
 import pytest
 from confluent_kafka import KafkaException, Consumer, Message
-from chunk_transformer.kafka_service.kafka_consumer import (
+from kafka_service.kafka_consumer import (
     KafkaConsumer,
     KafkaConsumerNotConnectedError,
     KafkaConsumerError,
 )
-from chunk_transformer.kafka_service.base_kafka_client import KafkaConnectionError
-from chunk_transformer.kafka_service.utils import build_topic
-from chunk_transformer.kafka_service.schemas import KafkaConsumerConfig, KafkaMessage
-from chunk_transformer.settings import Settings
+from kafka_service.base_kafka_client import KafkaConnectionError
+from kafka_service.utils import build_topic
+from kafka_service.schemas import KafkaConsumerConfig, KafkaMessage
 
 # Constants for test
 TEST_TOPIC = "test-topic"
@@ -23,21 +22,15 @@ mock_consumer_path = "kafka_service.kafka_consumer.Consumer"
 
 @pytest.fixture(name="config")
 def fixture_config():
-    settings = Settings(
-        _env_file="kafka_service/tests/.env.test.kafka",
-        _env_file_encoding="utf-8",
-    )
     return KafkaConsumerConfig(
-        kafka_servers=settings.kafka_servers,
-        kafka_group_id=settings.kafka_group_id,
-        kafka_offset=settings.kafka_reference_chunks_offset,
-        kafka_topic_prefix=settings.kafka_topic_prefix,
-        kafka_block_consumer_time_sec=settings.kafka_block_consumer_time_sec,
-        kafka_connection_check_timeout_sec=settings.kafka_connection_check_timeout_sec,
-        kafka_auto_commit_interval_ms=settings.kafka_auto_commit_interval_ms,
-        kafka_connection_check_interval_sec=(
-            settings.kafka_connection_check_interval_sec
-        ),
+        kafka_servers="localhost:9092",
+        kafka_group_id="test-group",
+        kafka_offset="latest",
+        kafka_topic_prefix="test.",
+        kafka_block_consumer_time_sec=1,
+        kafka_connection_check_timeout_sec=1,
+        kafka_auto_commit_interval_ms=1000,
+        kafka_connection_check_interval_sec=60,
     )
 
 
