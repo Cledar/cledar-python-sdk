@@ -1,0 +1,95 @@
+default:
+  tags:
+    - cledar-docker
+    
+variables:
+  SONAR_USER_HOME: "${CI_PROJECT_DIR}/.sonar"  # Defines the location of the analysis task cache
+  GIT_DEPTH: "0"  # Tells git to fetch all the branches of the project, required by the analysis task
+
+stages:
+  - version
+  - lint
+  - test
+  - validation
+
+version:
+  stage: version
+  image: registry.gitlab.com/cledar/deployments/semantic-image:current
+  rules:
+    - if: $CI_COMMIT_REF_NAME == $CI_DEFAULT_BRANCH
+    - when: never
+  artifacts:
+    name: $CI_PROJECT_TITLE current version
+    paths:
+      - .next_version
+    expire_in: never
+  tags:
+    - cledar-docker
+  script:
+    - semantic-release
+  needs: []
+
+black:
+  stage: lint
+  image: pyfound/black:latest
+  script:
+    - black --check --verbose --diff --color .
+  only:
+    - merge_requests
+    - master
+  needs: []
+
+pylint:
+  stage: lint
+  image: python:latest
+  script:
+    - pip3 install pylint
+    - pylint $(git ls-files '*.py')
+  only:
+    - merge_requests
+    - master
+  needs: []
+
+mypy:
+  stage: lint
+  image: python:latest
+  before_script:
+    - pip3 install poetry==1.8.3
+    - poetry install --no-root --without dev
+    - poetry add mypy
+  script:
+    - poetry run mypy . --config-file pyproject.toml
+  only:
+    - merge_requests
+    - master
+  needs: []
+
+test-services:
+  stage: test
+  image: python:latest
+  script:
+    - pip install poetry
+    - poetry config virtualenvs.in-project true
+    - poetry install 
+    - poetry run coverage run -m pytest
+    - poetry run coverage xml 
+  only:
+    - merge_requests
+    - master
+  needs: []
+  artifacts:
+    paths:
+      - coverage.xml
+
+sonarcloud-check-services:
+  stage: validation
+  image:
+    name: sonarsource/sonar-scanner-cli:latest
+    entrypoint: [""]
+  script:
+    - sonar-scanner -Dsonar.host.url="${SONAR_HOST_URL}" -Dsonar.token="${SONAR_TOKEN}"
+  only:
+    - merge_requests
+    - master
+  needs:
+    - test-services
