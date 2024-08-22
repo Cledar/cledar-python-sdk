@@ -10,7 +10,7 @@ stages:
   - version
   - lint
   - test
-  - validation
+  - validate
 
 version:
   stage: version
@@ -64,7 +64,7 @@ mypy:
     - master
   needs: []
 
-test-services:
+test:
   stage: test
   image: python:latest
   script:
@@ -81,8 +81,8 @@ test-services:
     paths:
       - coverage.xml
 
-sonarcloud-check-services:
-  stage: validation
+sonarcloud:
+  stage: validate
   image:
     name: sonarsource/sonar-scanner-cli:latest
     entrypoint: [""]
@@ -92,4 +92,4 @@ sonarcloud-check-services:
     - merge_requests
     - master
   needs:
-    - test-services
+    - test
