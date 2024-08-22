@@ -3,8 +3,7 @@ line-length = 88
 
 [tool.pylint]
 max-line-length = 88
-#TODO(pkomor): Remove R0801 (duplicate-code) once repo per worker is implemented
-disable = "C0111,C0103,E0401,R0903,R0801,W1203"
+disable = "C0111,C0103,E0401,R0903,W1203"
 enable = "W1201"
 
 [tool.mypy]
