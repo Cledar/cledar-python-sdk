@@ -22,7 +22,7 @@ class KafkaProducer(BaseKafkaClient):
         )
         self.check_connection()
         logger.info(
-            "Connected to Kafka servers.",
+            "Connected Producer to Kafka servers.",
             extra={"kafka_servers": self.config.kafka_servers},
         )
         self.start_connection_check_thread()
