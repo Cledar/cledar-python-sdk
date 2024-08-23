@@ -3,3 +3,21 @@ repos:
     rev: 24.4.2
     hooks:
     - id: black
+
+-   repo: local
+    hooks:
+    -   id: pylint
+        name: pylint
+        entry: pylint
+        language: python
+        types: [python]
+        require_serial: true
+        additional_dependencies: [pylint]
+
+-   repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.11.1
+    hooks:
+    -   id: mypy
+        additional_dependencies: [
+            pydantic==2.7.4,
+        ]

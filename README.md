@@ -1,6 +1,6 @@
-# Setup
+## Pre-commit setup
 
-To get started with the project, follow these steps:
+To get started follow these steps:
 
 1. Install `pre-commit` by running the following command:
     ```
@@ -12,5 +12,7 @@ To get started with the project, follow these steps:
     pre-commit install
     ```
 
-That's it! You are now ready to start working with the project.
-
+3. Pre-commit hooks will analyze only commited files. To analyze all files after installation run the following:
+    ```
+    pre-commit run --all-files
+    ```
