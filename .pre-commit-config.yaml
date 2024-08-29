@@ -2,13 +2,17 @@ repos:
 -   repo: https://github.com/psf/black
     rev: 24.4.2
     hooks:
-    - id: black
+    -   id: black
+        language: system
+        entry: poetry run black
+        types: [python]
+
 
 -   repo: local
     hooks:
     -   id: pylint
         name: pylint
-        entry: pylint
+        entry: poetry run pylint
         language: python
         types: [python]
         require_serial: true
@@ -18,6 +22,9 @@ repos:
     rev: v1.11.1
     hooks:
     -   id: mypy
+        language: system
+        entry: poetry run mypy
+        types: [python]
         additional_dependencies: [
             pydantic==2.7.4,
         ]

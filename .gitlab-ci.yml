@@ -1,6 +1,6 @@
 include:
   - project: 'cledar/kim/signals/pipeline/common-ci'
-    ref: master
+    ref: KSR-370-improve-linting-stage-performance-in-ci-pipeline
     file: '/.gitlab-ci-template.yml'
 
 version:
