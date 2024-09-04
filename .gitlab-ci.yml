@@ -1,6 +1,6 @@
 include:
   - project: 'cledar/kim/signals/pipeline/common-ci'
-    ref: KSR-370-improve-linting-stage-performance-in-ci-pipeline
+    ref: KSR-395-avoid-cache-recreation
     file: '/.gitlab-ci-template.yml'
 
 version:
