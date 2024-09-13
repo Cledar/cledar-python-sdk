@@ -25,7 +25,7 @@ logging.getLogger("uvicorn.access").addFilter(EndpointFilter())
 
 
 @app.get("/metrics")
-async def get_metrics():
+async def get_metrics() -> Response:
     return Response(
         content=prometheus_client.generate_latest(),
         media_type=prometheus_client.CONTENT_TYPE_LATEST,
@@ -33,18 +33,18 @@ async def get_metrics():
 
 
 @app.get("/health")
-async def get_health():
+async def get_health() -> Response:
     return Response(
         status_code=200,
     )
 
 
-def run_monitoring_server(host, port):
+def run_monitoring_server(host: str, port: int) -> None:
     app_server = f"{__name__}:app"
     uvicorn.run(app_server, host=host, port=port)
 
 
-def start_monitoring_server(host, port):
+def start_monitoring_server(host: str, port: int) -> None:
     server_thread = threading.Thread(
         target=run_monitoring_server,
         args=(host, port),

@@ -2,13 +2,13 @@
 from unittest.mock import patch, MagicMock
 import pytest
 from confluent_kafka import KafkaException, Producer
-from kafka_service.kafka_producer import (
-    KafkaProducer,
-    KafkaProducerNotConnectedError,
-)
-from kafka_service.base_kafka_client import KafkaConnectionError
+from kafka_service.kafka_producer import KafkaProducer
 from kafka_service.utils import delivery_callback
 from kafka_service.schemas import KafkaProducerConfig
+from kafka_service.exceptions import (
+    KafkaProducerNotConnectedError,
+    KafkaConnectionError,
+)
 
 # Constants for test
 TEST_TOPIC = "test-topic"
@@ -19,7 +19,7 @@ mock_producer_path = "kafka_service.kafka_producer.Producer"
 
 
 @pytest.fixture(name="config")
-def fixture_config():
+def fixture_config() -> KafkaProducerConfig:
     return KafkaProducerConfig(
         kafka_servers="localhost:9092",
         kafka_group_id="test-group",
@@ -31,11 +31,11 @@ def fixture_config():
 
 
 @pytest.fixture(name="producer")
-def fixture_producer(config):
+def fixture_producer(config: KafkaProducerConfig) -> KafkaProducer:
     return KafkaProducer(config)
 
 
-def test_init_producer(config, producer):
+def test_init_producer(config: KafkaProducerConfig, producer: KafkaProducer) -> None:
     assert isinstance(producer, KafkaProducer)
     assert producer.config == config
 
@@ -44,8 +44,11 @@ def test_init_producer(config, producer):
 @patch.object(KafkaProducer, "check_connection")
 @patch.object(KafkaProducer, "start_connection_check_thread")
 def test_connect(
-    mock_start_connection_check_thread, mock_check_connection, mock_producer, producer
-):
+    mock_start_connection_check_thread: MagicMock,
+    mock_check_connection: MagicMock,
+    mock_producer: MagicMock,
+    producer: KafkaProducer,
+) -> None:
     producer.connect()
     mock_producer.assert_called_once_with(
         {
@@ -61,8 +64,11 @@ def test_connect(
 @patch.object(KafkaProducer, "check_connection")
 @patch.object(KafkaProducer, "start_connection_check_thread")
 def test_send(
-    mock_start_connection_check_thread, mock_check_connection, mock_producer, producer
-):
+    mock_start_connection_check_thread: MagicMock,
+    mock_check_connection: MagicMock,
+    mock_producer: MagicMock,
+    producer: KafkaProducer,
+) -> None:
     mock_producer_instance = mock_producer.return_value
 
     producer.connect()
@@ -81,14 +87,18 @@ def test_send(
     mock_producer_instance.poll.assert_called_once()
 
 
-def test_send_without_connection(producer):
+def test_send_without_connection(producer: KafkaProducer) -> None:
     with pytest.raises(KafkaProducerNotConnectedError):
         producer.send(topic=TEST_TOPIC, value=TEST_VALUE, key=TEST_KEY)
 
 
 @patch(mock_producer_path)
 @patch.object(KafkaProducer, "start_connection_check_thread")
-def test_check_connection(mock_start_connection_check_thread, mock_producer, producer):
+def test_check_connection(
+    mock_start_connection_check_thread: MagicMock,
+    mock_producer: MagicMock,
+    producer: KafkaProducer,
+) -> None:
     mock_producer_instance = mock_producer.return_value
 
     producer.connect()
@@ -99,7 +109,7 @@ def test_check_connection(mock_start_connection_check_thread, mock_producer, pro
 
 
 @patch(mock_producer_path)
-def test_connect_failure(mock_producer, producer):
+def test_connect_failure(mock_producer: MagicMock, producer: KafkaProducer) -> None:
     mock_producer_instance = mock_producer.return_value
     mock_producer_instance.list_topics.side_effect = KafkaException
 
@@ -111,8 +121,11 @@ def test_connect_failure(mock_producer, producer):
 @patch("threading.Thread")
 @patch.object(KafkaProducer, "check_connection")
 def test_start_connection_check_thread(
-    mock_check_connection, mock_thread, mock_producer, producer
-):
+    mock_check_connection: MagicMock,
+    mock_thread: MagicMock,
+    mock_producer: MagicMock,
+    producer: KafkaProducer,
+) -> None:
     producer.connect()
     producer.start_connection_check_thread()
 
@@ -123,7 +136,12 @@ def test_start_connection_check_thread(
 @patch(mock_producer_path)
 @patch("threading.Thread")
 @patch.object(KafkaProducer, "check_connection")
-def test_shutdown(mock_check_connection, mock_thread, mock_producer, producer):
+def test_shutdown(
+    mock_check_connection: MagicMock,
+    mock_thread: MagicMock,
+    mock_producer: MagicMock,
+    producer: KafkaProducer,
+) -> None:
     mock_producer_instance = MagicMock(spec=Producer)
     mock_producer.return_value = mock_producer_instance
     mock_thread_instance = MagicMock()
