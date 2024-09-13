@@ -2,12 +2,12 @@
 from unittest.mock import patch, MagicMock
 import pytest
 from confluent_kafka import KafkaException, Consumer, Message
-from kafka_service.kafka_consumer import (
-    KafkaConsumer,
+from kafka_service.kafka_consumer import KafkaConsumer
+from kafka_service.exceptions import (
     KafkaConsumerNotConnectedError,
     KafkaConsumerError,
+    KafkaConnectionError,
 )
-from kafka_service.base_kafka_client import KafkaConnectionError
 from kafka_service.utils import build_topic
 from kafka_service.schemas import KafkaConsumerConfig, KafkaMessage
 
@@ -21,7 +21,7 @@ mock_consumer_path = "kafka_service.kafka_consumer.Consumer"
 
 
 @pytest.fixture(name="config")
-def fixture_config():
+def fixture_config() -> KafkaConsumerConfig:
     return KafkaConsumerConfig(
         kafka_servers="localhost:9092",
         kafka_group_id="test-group",
@@ -35,11 +35,11 @@ def fixture_config():
 
 
 @pytest.fixture(name="consumer")
-def fixture_consumer(config):
+def fixture_consumer(config: KafkaConsumerConfig) -> KafkaConsumer:
     return KafkaConsumer(config)
 
 
-def test_init_consumer(config, consumer):
+def test_init_consumer(config: KafkaConsumerConfig, consumer: KafkaConsumer) -> None:
     assert isinstance(consumer, KafkaConsumer)
     assert consumer.config == config
 
@@ -48,8 +48,11 @@ def test_init_consumer(config, consumer):
 @patch.object(KafkaConsumer, "check_connection")
 @patch.object(KafkaConsumer, "start_connection_check_thread")
 def test_connect(
-    mock_start_connection_check_thread, mock_check_connection, mock_consumer, consumer
-):
+    mock_start_connection_check_thread: MagicMock,
+    mock_check_connection: MagicMock,
+    mock_consumer: MagicMock,
+    consumer: KafkaConsumer,
+) -> None:
     consumer.connect()
     mock_consumer.assert_called_once_with(
         {
@@ -66,7 +69,7 @@ def test_connect(
 
 
 @patch(mock_consumer_path)
-def test_subscribe(mock_consumer, consumer):
+def test_subscribe(mock_consumer: MagicMock, consumer: KafkaConsumer) -> None:
     mock_consumer_instance = mock_consumer.return_value
     consumer.connect()
 
@@ -76,13 +79,13 @@ def test_subscribe(mock_consumer, consumer):
     )
 
 
-def test_subscribe_without_connection(consumer):
+def test_subscribe_without_connection(consumer: KafkaConsumer) -> None:
     with pytest.raises(KafkaConsumerNotConnectedError):
         consumer.subscribe([TEST_TOPIC])
 
 
 @patch(mock_consumer_path)
-def test_consume_next(mock_consumer, consumer):
+def test_consume_next(mock_consumer: MagicMock, consumer: KafkaConsumer) -> None:
     mock_consumer_instance = mock_consumer.return_value
     mock_msg = MagicMock(spec=Message)
     mock_msg.error.return_value = None
@@ -102,13 +105,13 @@ def test_consume_next(mock_consumer, consumer):
     )
 
 
-def test_consume_next_without_connection(consumer):
+def test_consume_next_without_connection(consumer: KafkaConsumer) -> None:
     with pytest.raises(KafkaConsumerNotConnectedError):
         consumer.consume_next()
 
 
 @patch(mock_consumer_path)
-def test_consume_error(mock_consumer, consumer):
+def test_consume_error(mock_consumer: MagicMock, consumer: KafkaConsumer) -> None:
     mock_consumer_instance = mock_consumer.return_value
     mock_msg = MagicMock(spec=Message)
     mock_msg.error.return_value = True
@@ -123,7 +126,11 @@ def test_consume_error(mock_consumer, consumer):
 
 @patch(mock_consumer_path)
 @patch.object(KafkaConsumer, "start_connection_check_thread")
-def test_check_connection(mock_start_connection_check_thread, mock_consumer, consumer):
+def test_check_connection(
+    mock_start_connection_check_thread: MagicMock,
+    mock_consumer: MagicMock,
+    consumer: KafkaConsumer,
+) -> None:
     mock_producer_instance = mock_consumer.return_value
 
     consumer.connect()
@@ -134,7 +141,7 @@ def test_check_connection(mock_start_connection_check_thread, mock_consumer, con
 
 
 @patch(mock_consumer_path)
-def test_connect_failure(mock_consumer, consumer):
+def test_connect_failure(mock_consumer: MagicMock, consumer: KafkaConsumer) -> None:
     mock_consumer_instance = mock_consumer.return_value
     mock_consumer_instance.list_topics.side_effect = KafkaException
 
@@ -146,8 +153,11 @@ def test_connect_failure(mock_consumer, consumer):
 @patch("threading.Thread")
 @patch.object(KafkaConsumer, "check_connection")
 def test_start_connection_check_thread(
-    mock_check_connection, mock_thread, mock_consumer, consumer
-):
+    mock_check_connection: MagicMock,
+    mock_thread: MagicMock,
+    mock_consumer: MagicMock,
+    consumer: KafkaConsumer,
+) -> None:
     consumer.connect()
     consumer.start_connection_check_thread()
 
@@ -158,7 +168,12 @@ def test_start_connection_check_thread(
 @patch(mock_consumer_path)
 @patch("threading.Thread")
 @patch.object(KafkaConsumer, "check_connection")
-def test_shutdown(mock_check_connection, mock_thread, mock_consumer, consumer):
+def test_shutdown(
+    mock_check_connection: MagicMock,
+    mock_thread: MagicMock,
+    mock_consumer: MagicMock,
+    consumer: KafkaConsumer,
+) -> None:
     mock_consumer_instance = MagicMock(spec=Consumer)
     mock_consumer.return_value = mock_consumer_instance
     mock_thread_instance = MagicMock()

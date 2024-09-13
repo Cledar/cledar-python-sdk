@@ -1,5 +1,6 @@
 # pylint: disable=too-many-instance-attributes
-from typing import Dict, Sequence
+from typing import Any
+from collections.abc import Sequence
 import pytest
 from faker import Faker
 import pydantic
@@ -98,7 +99,7 @@ class PipelineMessageReference:
 @pydantic.dataclasses.dataclass
 class PipelineStageReference(PipelineMessageReference):
     topic_name: str
-    inputs: Sequence[Dict | PipelineMessageReference]
+    inputs: Sequence[dict[str, Any] | PipelineMessageReference]
 
 
 @pydantic.dataclasses.dataclass
@@ -265,7 +266,7 @@ expected = InputMessagePayload(  # type: ignore
 )
 
 
-def test_parse_1():
+def test_parse_1() -> None:
     parser = InputParser(InputMessagePayload)
     obj = parser.parse_json(input_json_value)
 
@@ -280,7 +281,7 @@ def test_parse_1():
     assert obj.model_dump_json() == input_json_value
 
 
-def test_parse_mesage_raise():
+def test_parse_mesage_raise() -> None:
     parser = InputParser(InputMessagePayload)
 
     with pytest.raises(IncorrectMessageValue):

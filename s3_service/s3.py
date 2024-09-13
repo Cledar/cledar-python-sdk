@@ -7,6 +7,7 @@ from uuid import uuid4
 import traceback
 import boto3
 import botocore.exceptions
+from botocore.response import StreamingBody
 from .exceptions import RequiredBucketNotFoundException
 
 logger = logging.getLogger("s3_service")
@@ -31,7 +32,7 @@ class S3Service:
         )
         logger.info("Initiated client", extra={"endpoint_url": config.s3_endpoint_url})
 
-    def has_bucket(self, bucket: str, throw=False) -> bool:
+    def has_bucket(self, bucket: str, throw: bool = False) -> bool:
         try:
             self.client.head_bucket(Bucket=bucket)
             return True
@@ -57,8 +58,9 @@ class S3Service:
     def read_file(self, bucket: str, key: str) -> bytes:
         try:
             logger.debug("Reading file from S3", extra={"bucket": bucket, "key": key})
-            response = self.client.get_object(Bucket=bucket, Key=key)
-            content = response["Body"].read()
+            response: dict[str, Any] = self.client.get_object(Bucket=bucket, Key=key)
+            content_body: StreamingBody = response["Body"]
+            content: bytes = content_body.read()
             logger.debug("Read file from S3", extra={"bucket": bucket, "key": key})
             return content
         except Exception as exception:
@@ -83,7 +85,7 @@ class S3Service:
             logger.exception("Failed to upload file to S3")
             raise exception
 
-    def verify_and_upload_test_file(self, bucket: str, throw: bool = False):
+    def verify_and_upload_test_file(self, bucket: str, throw: bool = False) -> None:
         logger.info("Starting verification and upload of test file.")
         buckets = self.client.list_buckets().get("Buckets", [])
         logger.info(f"Number of buckets: {len(buckets)}")

@@ -1,5 +1,6 @@
+# mypy: disable-error-code=method-assign
 import io
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import MagicMock, patch
 import botocore.exceptions
 import pytest
 from faker import Faker
@@ -10,7 +11,7 @@ fake = Faker()
 
 
 @patch("boto3.client")
-def test_init(boto3_client):
+def test_init(boto3_client: MagicMock) -> None:
     config = S3ServiceConfig(
         s3_access_key=fake.password(),
         s3_endpoint_url=fake.url(),
@@ -28,7 +29,7 @@ def test_init(boto3_client):
 
 @pytest.fixture(name="s3_service")
 @patch("boto3.client")
-def fixture_s3_service(client: Mock):
+def fixture_s3_service(client: MagicMock) -> S3Service:
     config = S3ServiceConfig(
         s3_access_key=fake.password(),
         s3_endpoint_url=fake.url(),
@@ -38,21 +39,21 @@ def fixture_s3_service(client: Mock):
     return S3Service(config)
 
 
-def test_has_bucket_no_throw_true(s3_service):
+def test_has_bucket_no_throw_true(s3_service: S3Service) -> None:
     bucket_name = fake.name()
     result = s3_service.has_bucket(bucket=bucket_name)
 
     assert result is True
 
 
-def test_has_bucket_no_throw_exists(s3_service):
+def test_has_bucket_no_throw_exists(s3_service: S3Service) -> None:
     bucket_name = fake.name()
     result = s3_service.has_bucket(bucket=bucket_name, throw=False)
 
     assert result is True
 
 
-def test_has_bucket_no_throw_not_exists(s3_service):
+def test_has_bucket_no_throw_not_exists(s3_service: S3Service) -> None:
     bucket_name = fake.name()
     s3_service.client.head_bucket.side_effect = botocore.exceptions.ClientError(
         MagicMock(), MagicMock()
@@ -62,7 +63,7 @@ def test_has_bucket_no_throw_not_exists(s3_service):
     assert result is False
 
 
-def test_has_bucket_throw_not_exists(s3_service):
+def test_has_bucket_throw_not_exists(s3_service: S3Service) -> None:
     bucket_name = fake.name()
     s3_service.client.head_bucket.side_effect = botocore.exceptions.ClientError(
         MagicMock(), MagicMock()
@@ -72,7 +73,7 @@ def test_has_bucket_throw_not_exists(s3_service):
         s3_service.has_bucket(bucket=bucket_name, throw=True)
 
 
-def test_upload_buffer_exception(s3_service):
+def test_upload_buffer_exception(s3_service: S3Service) -> None:
     buffer_str = io.StringIO(fake.text())
     buffer_bytes = io.BytesIO(buffer_str.getvalue().encode())
     bucket_name = fake.name()
@@ -90,7 +91,7 @@ def test_upload_buffer_exception(s3_service):
     )
 
 
-def test_upload_file_exception(s3_service):
+def test_upload_file_exception(s3_service: S3Service) -> None:
     file_path = fake.file_path()
     bucket_name = fake.name()
     key = fake.name()
@@ -107,7 +108,7 @@ def test_upload_file_exception(s3_service):
     )
 
 
-def test_read_file_exception(s3_service):
+def test_read_file_exception(s3_service: S3Service) -> None:
     bucket_name = fake.name()
     key = fake.name()
 
@@ -122,7 +123,7 @@ def test_read_file_exception(s3_service):
     )
 
 
-def test_verify_and_upload_test_file(s3_service):
+def test_verify_and_upload_test_file(s3_service: S3Service) -> None:
     bucket = fake.name()
     test_bucket = fake.name()
     s3_service.client.list_buckets.return_value = {"Buckets": [{"Name": test_bucket}]}
