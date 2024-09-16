@@ -1,5 +1,5 @@
 include:
-  - project: 'cledar/kim/signals/pipeline/common-ci'
+  - project: 'cledar/kim/signals/common-ci'
     ref: master
     file: '/.gitlab-ci-template.yml'
 
