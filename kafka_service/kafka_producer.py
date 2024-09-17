@@ -27,7 +27,7 @@ class KafkaProducer(BaseKafkaClient):
         )
         self.start_connection_check_thread()
 
-    def send(self, topic: str, value: str, key: str) -> None:
+    def send(self, topic: str, value: str | None, key: str | None) -> None:
         if self.client is None:
             logger.error(
                 "KafkaProducer is not connected. Call 'connect' first.",
