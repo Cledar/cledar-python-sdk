@@ -16,6 +16,7 @@ class KafkaProducerConfig:
     kafka_block_buffer_time_sec: int
     kafka_connection_check_timeout_sec: int
     kafka_connection_check_interval_sec: int
+    compression_type: str | None = "gzip"
 
 
 @dataclass
