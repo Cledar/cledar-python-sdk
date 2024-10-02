@@ -18,6 +18,7 @@ class KafkaProducer(BaseKafkaClient):
             {
                 "bootstrap.servers": self.config.kafka_servers,
                 "client.id": self.config.kafka_group_id,
+                "compression.type": self.config.compression_type,
             }
         )
         self.check_connection()
