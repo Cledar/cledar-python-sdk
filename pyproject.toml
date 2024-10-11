@@ -27,7 +27,7 @@ authors = ["Krystian Krol"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.12"
+python = "3.12.7"
 pydantic-settings = "2.3.3"
 ecs-logging = "2.1.0"
 confluent-kafka = "2.4.0"
