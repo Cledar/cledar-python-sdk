@@ -1,6 +1,7 @@
 # mypy: disable-error-code=method-assign
 import io
 from unittest.mock import MagicMock, patch
+
 import botocore.exceptions
 import pytest
 from faker import Faker
@@ -11,32 +12,22 @@ fake = Faker()
 
 
 @patch("boto3.client")
-def test_init(boto3_client: MagicMock) -> None:
-    config = S3ServiceConfig(
-        s3_access_key=fake.password(),
-        s3_endpoint_url=fake.url(),
-        s3_secret_key=fake.password(),
-    )
-    S3Service(config)
+def test_init(boto3_client: MagicMock, s3_config: S3ServiceConfig) -> None:
+    S3Service(s3_config)
 
     boto3_client.assert_called_once_with(
         "s3",
-        endpoint_url=config.s3_endpoint_url,
-        aws_access_key_id=config.s3_access_key,
-        aws_secret_access_key=config.s3_secret_key,
+        endpoint_url=s3_config.s3_endpoint_url,
+        aws_access_key_id=s3_config.s3_access_key,
+        aws_secret_access_key=s3_config.s3_secret_key,
     )
 
 
 @pytest.fixture(name="s3_service")
 @patch("boto3.client")
-def fixture_s3_service(client: MagicMock) -> S3Service:
-    config = S3ServiceConfig(
-        s3_access_key=fake.password(),
-        s3_endpoint_url=fake.url(),
-        s3_secret_key=fake.password(),
-    )
+def fixture_s3_service(client: MagicMock, s3_config: S3ServiceConfig) -> S3Service:
     client.return_value(MagicMock())
-    return S3Service(config)
+    return S3Service(s3_config)
 
 
 def test_has_bucket_no_throw_true(s3_service: S3Service) -> None:
