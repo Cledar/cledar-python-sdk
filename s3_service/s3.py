@@ -1,13 +1,15 @@
-from typing import Any
 import io
 import logging
+import traceback
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Any
 from uuid import uuid4
-import traceback
+
 import boto3
 import botocore.exceptions
 from botocore.response import StreamingBody
+
 from .exceptions import RequiredBucketNotFoundException
 
 logger = logging.getLogger("s3_service")
