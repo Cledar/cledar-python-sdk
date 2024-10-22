@@ -1,8 +1,8 @@
 from typing import Generic
+from pydantic import BaseModel
 
 from .schemas import KafkaMessage
 from .models.input import (
-    Payload,
     InputKafkaMessage,
 )
 
@@ -14,7 +14,7 @@ class IncorrectMessageValue(Exception):
     """
 
 
-class InputParser(Generic[Payload]):
+class InputParser[Payload: BaseModel]:
     def __init__(self, model: type[Payload]) -> None:
         self.model: type[Payload] = model
 
