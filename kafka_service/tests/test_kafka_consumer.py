@@ -1,4 +1,4 @@
-# pylint: disable=unused-argument, protected-access
+# pylint: disable=unused-argument, unused-variable, protected-access
 from unittest.mock import patch, MagicMock
 import pytest
 from confluent_kafka import KafkaException, Consumer, Message
@@ -15,6 +15,7 @@ from kafka_service.schemas import KafkaConsumerConfig, KafkaMessage
 TEST_TOPIC = "test-topic"
 TEST_VALUE = "test-value"
 TEST_KEY = "test-key"
+TEST_OFFSET = 1
 TEST_GROUP_ID = "test-group-id"
 
 mock_consumer_path = "kafka_service.kafka_consumer.Consumer"
@@ -57,7 +58,7 @@ def test_connect(
     mock_consumer.assert_called_once_with(
         {
             "bootstrap.servers": consumer.config.kafka_servers,
-            "enable.auto.commit": True,
+            "enable.auto.commit": False,
             "enable.partition.eof": False,
             "auto.commit.interval.ms": consumer.config.kafka_auto_commit_interval_ms,
             "auto.offset.reset": consumer.config.kafka_offset,
@@ -92,6 +93,7 @@ def test_consume_next(mock_consumer: MagicMock, consumer: KafkaConsumer) -> None
     mock_msg.topic.return_value = TEST_TOPIC
     mock_msg.value.return_value = TEST_VALUE.encode("utf-8")
     mock_msg.key.return_value = TEST_KEY.encode("utf-8")
+    mock_msg.offset.return_value = TEST_OFFSET
     mock_consumer_instance.poll.return_value = mock_msg
 
     consumer.connect()
@@ -102,6 +104,7 @@ def test_consume_next(mock_consumer: MagicMock, consumer: KafkaConsumer) -> None
         topic=TEST_TOPIC,
         value=TEST_VALUE,
         key=TEST_KEY,
+        offset=TEST_OFFSET,
     )
 
 
@@ -186,3 +189,130 @@ def test_shutdown(
     mock_consumer_instance.close.assert_called_once()
     mock_thread_instance.join.assert_called_once()
     assert consumer._stop_event.is_set()
+
+
+@patch(mock_consumer_path)
+def test_commit_success(mock_consumer: MagicMock, consumer: KafkaConsumer) -> None:
+    mock_consumer_instance = mock_consumer.return_value
+    mock_msg = MagicMock(spec=Message)
+    mock_msg.offset.return_value = TEST_OFFSET
+
+    consumer.connect()
+    consumer.subscribe([TEST_TOPIC])
+
+    kafka_message = KafkaMessage(
+        topic=TEST_TOPIC,
+        value=TEST_VALUE,
+        key=TEST_KEY,
+        offset=TEST_OFFSET,
+    )
+
+    consumer.commit(kafka_message)
+
+    mock_consumer_instance.commit.assert_called_once_with(asynchronous=True)
+
+
+@patch(mock_consumer_path)
+def test_commit_failure(mock_consumer: MagicMock, consumer: KafkaConsumer) -> None:
+    mock_consumer_instance = mock_consumer.return_value
+    mock_consumer_instance.commit.side_effect = KafkaException
+
+    consumer.connect()
+    consumer.subscribe([TEST_TOPIC])
+
+    kafka_message = KafkaMessage(
+        topic=TEST_TOPIC,
+        value=TEST_VALUE,
+        key=TEST_KEY,
+        offset=TEST_OFFSET,
+    )
+
+    with pytest.raises(KafkaException):
+        consumer.commit(kafka_message)
+
+    mock_consumer_instance.commit.assert_called_once_with(asynchronous=True)
+
+
+def test_commit_without_connection(consumer: KafkaConsumer) -> None:
+    kafka_message = KafkaMessage(
+        topic=TEST_TOPIC,
+        value=TEST_VALUE,
+        key=TEST_KEY,
+        offset=TEST_OFFSET,
+    )
+
+    with pytest.raises(KafkaConsumerNotConnectedError):
+        consumer.commit(kafka_message)
+
+
+@patch(mock_consumer_path)
+def test_consume_and_commit_after_processing(
+    mock_consumer: MagicMock, consumer: KafkaConsumer
+) -> None:
+    mock_consumer_instance = mock_consumer.return_value
+    mock_msg = MagicMock(spec=Message)
+    mock_msg.error.return_value = None
+    mock_msg.topic.return_value = TEST_TOPIC
+    mock_msg.value.return_value = TEST_VALUE.encode("utf-8")
+    mock_msg.key.return_value = TEST_KEY.encode("utf-8")
+    mock_msg.offset.return_value = TEST_OFFSET
+    mock_consumer_instance.poll.return_value = mock_msg
+    mock_processing_function = MagicMock()
+
+    consumer.connect()
+    consumer.subscribe([TEST_TOPIC])
+
+    message = consumer.consume_next()
+    assert message is not None
+
+    mock_processing_function(message)
+
+    consumer.commit(message)
+
+    mock_processing_function.assert_called_once_with(message)
+    mock_consumer_instance.commit.assert_called_once_with(asynchronous=True)
+
+
+def test_no_commit_on_none_message(consumer: KafkaConsumer) -> None:
+    with patch.object(consumer, "consume_next", return_value=None) as mock_consume_next:
+        with patch.object(consumer, "commit") as mock_commit:
+            message = consumer.consume_next()
+            assert message is None
+
+            # Processing function and commit should not be called if the message is None
+            mock_processing_function = MagicMock()
+            mock_processing_function.assert_not_called()
+
+            mock_commit.assert_not_called()
+
+
+@patch(mock_consumer_path)
+def test_commit_failure_after_processing(
+    mock_consumer: MagicMock, consumer: KafkaConsumer
+) -> None:
+    mock_consumer_instance = mock_consumer.return_value
+    mock_msg = MagicMock(spec=Message)
+    mock_msg.error.return_value = None
+    mock_msg.topic.return_value = TEST_TOPIC
+    mock_msg.value.return_value = TEST_VALUE.encode("utf-8")
+    mock_msg.key.return_value = TEST_KEY.encode("utf-8")
+    mock_msg.offset.return_value = TEST_OFFSET
+    mock_consumer_instance.poll.return_value = mock_msg
+
+    mock_processing_function = MagicMock()
+
+    mock_consumer_instance.commit.side_effect = KafkaException
+
+    consumer.connect()
+    consumer.subscribe([TEST_TOPIC])
+
+    message = consumer.consume_next()
+    assert message is not None
+
+    mock_processing_function(message)
+
+    with pytest.raises(KafkaException):
+        consumer.commit(message)
+
+    mock_processing_function.assert_called_once_with(message)
+    mock_consumer_instance.commit.assert_called_once_with(asynchronous=True)

@@ -13,3 +13,6 @@ def delivery_callback(error: KafkaError, msg: Message) -> None:
         )
     else:
         logger.debug("Message delivered.", extra={"topic": msg.topic()})
+
+
+consumer_not_connected_msg = "KafkaConsumer is not connected. Call 'connect' first."
