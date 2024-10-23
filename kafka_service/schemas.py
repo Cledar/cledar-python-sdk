@@ -6,6 +6,7 @@ class KafkaMessage:
     topic: str
     value: str | None
     key: str | None
+    offset: int | None
 
 
 @dataclass

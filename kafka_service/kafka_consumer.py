@@ -3,7 +3,7 @@ from pydantic.dataclasses import dataclass
 from confluent_kafka import Consumer, KafkaException
 from .base_kafka_client import BaseKafkaClient
 from .schemas import KafkaConsumerConfig
-from .utils import build_topic
+from .utils import build_topic, consumer_not_connected_msg
 from .schemas import KafkaMessage
 from .logger import logger
 from .exceptions import (
@@ -21,7 +21,7 @@ class KafkaConsumer(BaseKafkaClient):
         self.client = Consumer(
             {
                 "bootstrap.servers": self.config.kafka_servers,
-                "enable.auto.commit": True,
+                "enable.auto.commit": False,
                 "enable.partition.eof": False,
                 "auto.commit.interval.ms": self.config.kafka_auto_commit_interval_ms,
                 "auto.offset.reset": self.config.kafka_offset,
@@ -38,7 +38,7 @@ class KafkaConsumer(BaseKafkaClient):
     def subscribe(self, topics: list[str]) -> None:
         if self.client is None:
             logger.error(
-                "KafkaConsumer is not connected. Call 'connect' first.",
+                consumer_not_connected_msg,
                 extra={"topics": topics},
             )
             raise KafkaConsumerNotConnectedError
@@ -64,7 +64,7 @@ class KafkaConsumer(BaseKafkaClient):
 
     def consume_next(self) -> KafkaMessage | None:
         if self.client is None:
-            logger.error("KafkaConsumer is not connected. Call 'connect' first.")
+            logger.error(consumer_not_connected_msg)
             raise KafkaConsumerNotConnectedError
 
         try:
@@ -92,8 +92,22 @@ class KafkaConsumer(BaseKafkaClient):
                 topic=msg.topic(),
                 value=msg.value().decode("utf-8") if msg.value() else None,
                 key=msg.key().decode("utf-8") if msg.key() else None,
+                offset=msg.offset(),
             )
 
         except KafkaException as exception:
             logger.exception("Failed to consume message.")
+            raise exception
+
+    def commit(self, message: KafkaMessage) -> None:
+        if self.client is None:
+            logger.error(consumer_not_connected_msg)
+            raise KafkaConsumerNotConnectedError
+
+        try:
+            self.client.commit(asynchronous=True)
+            logger.debug("Commit requested.", extra={"offset": message.offset})
+
+        except KafkaException as exception:
+            logger.exception("Failed to commit offsets.")
             raise exception
