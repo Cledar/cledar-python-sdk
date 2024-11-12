@@ -1,6 +1,9 @@
+import json
+
 from pydantic import ConfigDict
 from pydantic.dataclasses import dataclass
 from confluent_kafka import Consumer, KafkaException
+
 from .base_kafka_client import BaseKafkaClient
 from .schemas import KafkaConsumerConfig
 from .utils import build_topic, consumer_not_connected_msg
@@ -79,12 +82,16 @@ class KafkaConsumer(BaseKafkaClient):
                     extra={"error": msg.error()},
                 )
                 raise KafkaConsumerError(msg.error())
-
+            msg_id = (
+                json.loads(msg.value().decode("utf-8")).get("id", None)
+                if msg.value()
+                else None
+            )
             logger.debug(
                 "Received message.",
                 extra={
                     "topic": msg.topic(),
-                    "value": msg.value(),
+                    "msg_id": msg_id,
                     "key": msg.key(),
                 },
             )

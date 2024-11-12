@@ -1,6 +1,9 @@
+import json
+
 from pydantic import ConfigDict
 from pydantic.dataclasses import dataclass
 from confluent_kafka import Producer, KafkaException
+
 from .base_kafka_client import BaseKafkaClient
 from .schemas import KafkaProducerConfig
 from .utils import build_topic, delivery_callback
@@ -29,10 +32,11 @@ class KafkaProducer(BaseKafkaClient):
         self.start_connection_check_thread()
 
     def send(self, topic: str, value: str | None, key: str | None) -> None:
+        msg_id = json.loads(value.decode("utf-8")).get("id", None)
         if self.client is None:
             logger.error(
                 "KafkaProducer is not connected. Call 'connect' first.",
-                extra={"topic": topic, "value": value, "key": key},
+                extra={"topic": topic, "msg_id": msg_id, "key": key},
             )
             raise KafkaProducerNotConnectedError
 
@@ -41,7 +45,7 @@ class KafkaProducer(BaseKafkaClient):
         try:
             logger.debug(
                 "Sending message to topic.",
-                extra={"topic": topic, "value": value, "key": key},
+                extra={"topic": topic, "msg_id": msg_id, "key": key},
             )
             self.client.produce(
                 topic=topic, value=value, key=key, callback=delivery_callback
