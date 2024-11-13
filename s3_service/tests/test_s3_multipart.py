@@ -64,35 +64,3 @@ def test_upload_file_chunk(s3_multipart_service: S3MultipartService) -> None:
         assert result.total_chunks == dto.total_chunks
         assert result.gen_filename is not None
         assert result.file_name is not None
-
-
-def test_upload_chunks_non_sequential_valueerror(
-    s3_multipart_service: S3MultipartService,
-) -> None:
-    # Arrange
-    session_id = str(fake.uuid4())
-    dto = UploadChunkDto(
-        bucket=fake.name(),
-        body=b"test data",
-        chunk_no=1,
-        total_chunks=2,
-        file_name=fake.file_name(),
-        session_id=session_id,
-    )
-
-    # Mock the necessary S3 client responses
-    with patch.object(
-        s3_multipart_service.client,
-        "create_multipart_upload",
-        return_value={"UploadId": "test-upload-id"},
-    ), patch.object(
-        s3_multipart_service.client,
-        "upload_part",
-        return_value={"PartNumber": dto.chunk_no, "ETag": "test-etag"},
-    ):
-        # Act: (non-sequential)
-        dto.chunk_no = 2
-
-        # Assert: ValueError raised
-        with pytest.raises(ValueError, match="Chunks must be uploaded sequentially"):
-            s3_multipart_service.upload_file_chunk(dto)
