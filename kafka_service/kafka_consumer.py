@@ -1,9 +1,10 @@
 from pydantic import ConfigDict
 from pydantic.dataclasses import dataclass
 from confluent_kafka import Consumer, KafkaException
+
 from .base_kafka_client import BaseKafkaClient
 from .schemas import KafkaConsumerConfig
-from .utils import build_topic, consumer_not_connected_msg
+from .utils import build_topic, consumer_not_connected_msg, extract_id_from_value
 from .schemas import KafkaMessage
 from .logger import logger
 from .exceptions import (
@@ -84,7 +85,7 @@ class KafkaConsumer(BaseKafkaClient):
                 "Received message.",
                 extra={
                     "topic": msg.topic(),
-                    "value": msg.value(),
+                    "msg_id": extract_id_from_value(msg.value().decode("utf-8")),
                     "key": msg.key(),
                 },
             )

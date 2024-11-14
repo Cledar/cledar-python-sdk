@@ -1,9 +1,10 @@
 from pydantic import ConfigDict
 from pydantic.dataclasses import dataclass
 from confluent_kafka import Producer, KafkaException
+
 from .base_kafka_client import BaseKafkaClient
 from .schemas import KafkaProducerConfig
-from .utils import build_topic, delivery_callback
+from .utils import build_topic, delivery_callback, extract_id_from_value
 from .logger import logger
 from .exceptions import KafkaProducerNotConnectedError
 
@@ -32,7 +33,11 @@ class KafkaProducer(BaseKafkaClient):
         if self.client is None:
             logger.error(
                 "KafkaProducer is not connected. Call 'connect' first.",
-                extra={"topic": topic, "value": value, "key": key},
+                extra={
+                    "topic": topic,
+                    "msg_id": extract_id_from_value(value),
+                    "key": key,
+                },
             )
             raise KafkaProducerNotConnectedError
 
@@ -41,7 +46,11 @@ class KafkaProducer(BaseKafkaClient):
         try:
             logger.debug(
                 "Sending message to topic.",
-                extra={"topic": topic, "value": value, "key": key},
+                extra={
+                    "topic": topic,
+                    "msg_id": extract_id_from_value(value),
+                    "key": key,
+                },
             )
             self.client.produce(
                 topic=topic, value=value, key=key, callback=delivery_callback
