@@ -34,6 +34,13 @@ class S3Service:
         )
         logger.info("Initiated client", extra={"endpoint_url": config.s3_endpoint_url})
 
+    def is_alive(self) -> bool:
+        try:
+            self.client.list_buckets()
+            return True
+        except botocore.exceptions.ClientError:
+            return False
+
     def has_bucket(self, bucket: str, throw: bool = False) -> bool:
         try:
             self.client.head_bucket(Bucket=bucket)
