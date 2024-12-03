@@ -44,6 +44,17 @@ class BaseKafkaClient:
             except KafkaConnectionError:
                 logger.exception(f"{self.__class__.__name__} connection check failed.")
 
+    def is_alive(self) -> bool:
+        try:
+            self.check_connection()
+            return True
+        except (
+            KafkaProducerNotConnectedError,
+            KafkaConsumerNotConnectedError,
+            KafkaConnectionError,
+        ):
+            return False
+
     def check_connection(self) -> None:
         """
         when the broker is not available (or the address is wrong)
