@@ -38,7 +38,7 @@ class S3Service:
         try:
             self.client.list_buckets()
             return True
-        except botocore.exceptions.ClientError:
+        except Exception:  # pylint: disable=broad-exception-caught
             return False
 
     def has_bucket(self, bucket: str, throw: bool = False) -> bool:
