@@ -18,5 +18,17 @@ mypy:
 test:
   extends: .test
 
+publish:
+  image: python:3.12.7
+  stage: deploy
+  script:
+    - pip install poetry
+    - poetry self add "poetry-dynamic-versioning[plugin]"
+    - poetry install
+    - poetry build
+    - poetry config repositories.gitlab "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/pypi"
+    - poetry config http-basic.gitlab gitlab-ci-token "$CI_JOB_TOKEN"
+    - poetry publish --repository gitlab
+
 sonarcloud-check:
   extends: .sonarcloud-check
