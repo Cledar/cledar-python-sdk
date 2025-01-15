@@ -1,5 +1,4 @@
 import logging
-import json
 from datetime import datetime
 from common_services.kafka_service.kafka_producer import (
     KafkaProducer,
@@ -15,12 +14,12 @@ from common_services.dlq_service.output import (
 
 class DeadLetterHandler:
     """
-    A coordinator for handling failed messages and sending them to a DLQ topic.
+    A Handler for handling failed messages and sending them to a DLQ topic.
     """
 
     def __init__(self, producer: KafkaProducer, dlq_topic: str) -> None:
         """
-        Initialize DlqCoordinator with a Kafka producer and DLQ topic.
+        Initialize DeadLetterHandler with a Kafka producer and DLQ topic.
 
         :param producer: KafkaProducer instance.
         :param dlq_topic: The name of the DLQ Kafka topic.
@@ -84,6 +83,5 @@ class DeadLetterHandler:
         :param message: The DLQ message payload.
         """
         serialized_message = message.model_dump_json()
-        json.loads(serialized_message)
         self.producer.send(topic=self.dlq_topic, value=serialized_message, key=None)
         logging.info("Message sent to DLQ topic successfully.")
