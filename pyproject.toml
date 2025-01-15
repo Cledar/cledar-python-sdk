@@ -16,7 +16,7 @@ init_typed = true
 warn_required_dynamic_aliases = true
 
 [[tool.mypy.overrides]]
-module = ["confluent_kafka", "common_services.kafka_service.kafka_producer", "common_services.kafka_service.schemas", "common_services.dlq_service.output"] # https://github.com/confluentinc/confluent-kafka-python/issues/1408
+module = ["confluent_kafka", ".kafka_service.schemas", ".output", ".kafka_service.kafka_producer" ] # https://github.com/confluentinc/confluent-kafka-python/issues/1408
 ignore_missing_imports = true
 
 [tool.poetry]

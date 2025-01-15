@@ -1,12 +1,9 @@
 import logging
 from datetime import datetime
-from common_services.kafka_service.kafka_producer import (
-    KafkaProducer,
-)
-from common_services.kafka_service.schemas import (
-    KafkaMessage,
-)
-from common_services.dlq_service.output import (
+
+from ..kafka_service.kafka_producer import KafkaProducer  # type: ignore[misc] # pylint: disable=relative-beyond-top-level
+from ..kafka_service.schemas import KafkaMessage  # type: ignore[misc] # pylint: disable=relative-beyond-top-level
+from .output import (  # pylint: disable=relative-beyond-top-level
     DlqOutputMessagePayload,
     FailedMessageData,
 )
