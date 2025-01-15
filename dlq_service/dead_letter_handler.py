@@ -1,14 +1,13 @@
 import logging
 import json
 from datetime import datetime
-
-from ..kafka_service.kafka_producer import (
+from common_services.kafka_service.kafka_producer import (
     KafkaProducer,
 )
-from ..kafka_service.schemas import (
+from common_services.kafka_service.schemas import (
     KafkaMessage,
 )
-from .output import (
+from common_services.dlq_service.output import (
     DlqOutputMessagePayload,
     FailedMessageData,
 )
