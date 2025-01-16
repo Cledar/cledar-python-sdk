@@ -1,14 +1,15 @@
 # pylint: disable=broad-exception-caught
-from typing import Callable, List
+import json
 import logging
 import logging.config
 import threading
-import json
+from typing import Callable, List
+
 import prometheus_client
-from pydantic.dataclasses import dataclass
+import uvicorn
 from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
-import uvicorn
+from pydantic.dataclasses import dataclass
 
 
 def create_app() -> FastAPI:
@@ -25,6 +26,7 @@ def create_app() -> FastAPI:
 @dataclass
 class MonitoringServerConfig:
     readiness_checks: dict[str, Callable[[], bool]]
+    liveness_checks: dict[str, Callable[[], bool]] | None = None
 
 
 class EndpointFilter(logging.Filter):
@@ -72,38 +74,36 @@ class MonitoringServer:
 
         @app.get("/healthz/liveness")
         async def get_healthz_liveness() -> Response:
-            try:
-                data = {"status": "ok"}
-                data_json = json.dumps(data)
-                return Response(content=data_json, status_code=200)
-            except Exception as e:
-                data = {"status": "error", "message": str(e)}
-                data_json = json.dumps(data)
-                return Response(content=data_json, status_code=503)
+            return await self._get_healthz_response(self.config.liveness_checks)
 
         @app.get("/healthz/readiness")
         async def get_healthz_readiness() -> Response:
-            try:
-                checks = {
-                    check_name: check_fn()
-                    for check_name, check_fn in self.config.readiness_checks.items()
-                }
-                if all(checks.values()):
-                    data = {"status": "ok", "checks": checks}
-                    data_json = json.dumps(data)
-                    return Response(content=data_json, status_code=200)
-                failed = {
-                    check_name: check_value
-                    for check_name, check_value in checks.items()
-                    if not check_value
-                }
-                data = {"status": "error", "failed_checks": failed}
-                data_json = json.dumps(data)
-                return Response(content=data_json, status_code=503)
-            except Exception as e:
-                data = {"status": "error", "message": str(e)}
-                data_json = json.dumps(data)
-                return Response(content=data_json, status_code=503)
+            return await self._get_healthz_response(self.config.readiness_checks)
+
+    async def _get_healthz_response(
+        self, checks: dict[str, Callable[[], bool]] | None
+    ) -> Response:
+        try:
+            results = (
+                {check_name: check_fn() for check_name, check_fn in checks.items()}
+                if checks
+                else {}
+            )
+
+            status = "error"
+            status_code = 503
+            if all(results.values()):
+                status = "ok"
+                status_code = 200
+
+            data = {"status": status, "checks": results}
+            data_json = json.dumps(data)
+            return Response(content=data_json, status_code=status_code)
+
+        except Exception as e:
+            data = {"status": "error", "message": str(e)}
+            data_json = json.dumps(data)
+            return Response(content=data_json, status_code=503)
 
     def start_monitoring_server(self) -> None:
         local_app = create_app()
