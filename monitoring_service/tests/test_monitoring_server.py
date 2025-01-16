@@ -49,13 +49,13 @@ def client(app: FastAPI) -> TestClient:
 def test_liveness(client: TestClient) -> None:
     response = client.get("/healthz/liveness")
     assert response.status_code == 200
-    assert response.text == '{"status": "ok"}'
+    assert response.text == '{"status": "ok", "checks": {}}'
 
 
 def test_readiness(client: TestClient, readiness_flag: ReadinessFlag) -> None:
     response = client.get("/healthz/readiness")
     assert response.status_code == 503
-    assert response.text == '{"status": "error", "failed_checks": {"is_ready": false}}'
+    assert response.text == '{"status": "error", "checks": {"is_ready": false}}'
 
     readiness_flag.mark_ready()
 
