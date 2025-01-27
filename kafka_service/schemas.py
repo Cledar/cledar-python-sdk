@@ -11,12 +11,14 @@ class KafkaMessage:
 
 @dataclass
 class KafkaProducerConfig:
+    # pylint: disable=too-many-instance-attributes
     kafka_servers: list[str] | str
     kafka_group_id: str | None
     kafka_topic_prefix: str | None
     kafka_block_buffer_time_sec: int
     kafka_connection_check_timeout_sec: int
     kafka_connection_check_interval_sec: int
+    kafka_partitioner: str = "consistent_random"
     compression_type: str | None = "gzip"
 
 
