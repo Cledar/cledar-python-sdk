@@ -20,6 +20,7 @@ class KafkaProducer(BaseKafkaClient):
                 "bootstrap.servers": self.config.kafka_servers,
                 "client.id": self.config.kafka_group_id,
                 "compression.type": self.config.compression_type,
+                "partitioner": self.config.kafka_partitioner,
             }
         )
         self.check_connection()
