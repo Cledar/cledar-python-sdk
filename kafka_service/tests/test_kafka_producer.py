@@ -55,6 +55,7 @@ def test_connect(
             "bootstrap.servers": producer.config.kafka_servers,
             "client.id": producer.config.kafka_group_id,
             "compression.type": "gzip",
+            "partitioner": "consistent_random",
         }
     )
     mock_check_connection.assert_called_once()
