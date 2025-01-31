@@ -1,13 +1,22 @@
 from typing import Any
-from pydantic import BaseModel
+import pydantic
 
 
-class FailedMessageData(BaseModel):
+
+class FailedMessageData(pydantic.BaseModel):
     raised_at: str
-    exception_message: str
-    exception_trace: str
+    exception_message: str | None
+    exception_trace: str | None
 
 
-class DlqOutputMessagePayload(BaseModel):
+class DlqOutputMessagePayload(pydantic.BaseModel):
     message: Any
     failure: list[FailedMessageData]
+
+
+class DlqFailedFeaturePayload(DlqOutputMessagePayload):
+    failed_feature: str | None
+
+
+class FailedFeatureData(FailedMessageData):
+    failed_feature: str | None

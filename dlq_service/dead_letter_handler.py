@@ -1,11 +1,11 @@
 import logging
-from datetime import datetime
 
 from ..kafka_service.kafka_producer import KafkaProducer  # type: ignore[misc] # pylint: disable=relative-beyond-top-level
 from ..kafka_service.schemas import KafkaMessage  # type: ignore[misc] # pylint: disable=relative-beyond-top-level
 from .output import (  # pylint: disable=relative-beyond-top-level
     DlqOutputMessagePayload,
     FailedMessageData,
+    DlqFailedFeaturePayload,
 )
 
 
@@ -27,9 +27,10 @@ class DeadLetterHandler:
     def handle(
         self,
         message: KafkaMessage,
-        exception_message: str,
-        exception_traceback: str,
-        raised_at: datetime,
+        raised_at: str,
+        exception_message: str | None = None,
+        exception_traceback: str | None = None,
+        failed_feature: str | None = None,
     ) -> None:
         """
         Handles a failed message by building a DLQ msg and sending it to the DLQ topic.
@@ -38,10 +39,11 @@ class DeadLetterHandler:
         :param exception_message: The error message describing the failure.
         :param exception_traceback: The stack trace of the exception.
         :param raised_at: The datetime when the exception occurred.
+        :param failed_feature: A failed feature.
         """
         logging.info("Handling message for DLQ.")
         dlq_message = self._build_message(
-            message, exception_message, exception_traceback, raised_at
+            message, raised_at, exception_message, exception_traceback, failed_feature
         )
         logging.info("DLQ message built successfully.")
         self._send_message(dlq_message)
@@ -49,9 +51,10 @@ class DeadLetterHandler:
     def _build_message(
         self,
         message: KafkaMessage,
-        exception_message: str,
-        exception_traceback: str,
-        raised_at: datetime,
+        raised_at: str,
+        exception_message: str | None = None,
+        exception_traceback: str | None = None,
+        failed_feature: str | None = None,
     ) -> DlqOutputMessagePayload:
         """
         Builds a DLQ message payload.
@@ -68,7 +71,13 @@ class DeadLetterHandler:
             exception_message=str(exception_message),
             exception_trace=exception_traceback,
         )
-
+        if failed_feature:
+            logging.info("Failed feature: %s", failed_feature)
+            return DlqFailedFeaturePayload(
+                message=message.value,
+                failure=[failed_message_data],
+                failed_feature=failed_feature,
+            )
         return DlqOutputMessagePayload(
             message=message.value, failure=[failed_message_data]
         )
