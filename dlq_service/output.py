@@ -2,7 +2,6 @@ from typing import Any
 import pydantic
 
 
-
 class FailedMessageData(pydantic.BaseModel):
     raised_at: str
     exception_message: str | None

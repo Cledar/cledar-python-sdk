@@ -24,7 +24,7 @@ class DeadLetterHandler:
         self.producer: KafkaProducer = producer
         self.dlq_topic: str = dlq_topic
 
-    def handle(
+    def handle( # pylint: disable=too-many-arguments, too-many-positional-arguments
         self,
         message: KafkaMessage,
         raised_at: str,
@@ -48,7 +48,7 @@ class DeadLetterHandler:
         logging.info("DLQ message built successfully.")
         self._send_message(dlq_message)
 
-    def _build_message(
+    def _build_message(  # pylint: disable=too-many-arguments, too-many-positional-arguments
         self,
         message: KafkaMessage,
         raised_at: str,
