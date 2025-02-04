@@ -1,11 +1,13 @@
 import logging
+from typing import Tuple
+import json
 
 from ..kafka_service.kafka_producer import KafkaProducer  # type: ignore[misc] # pylint: disable=relative-beyond-top-level
 from ..kafka_service.schemas import KafkaMessage  # type: ignore[misc] # pylint: disable=relative-beyond-top-level
 from .output import (  # pylint: disable=relative-beyond-top-level
     DlqOutputMessagePayload,
+    FailedFeatureData,
     FailedMessageData,
-    DlqFailedFeaturePayload,
 )
 
 
@@ -27,67 +29,94 @@ class DeadLetterHandler:
     def handle(  # pylint: disable=too-many-arguments, too-many-positional-arguments
         self,
         message: KafkaMessage,
-        raised_at: str,
-        exception_message: str | None = None,
-        exception_traceback: str | None = None,
-        failed_feature: str | None = None,
+        failures_details: list[FailedFeatureData | FailedMessageData] | None,
     ) -> None:
         """
         Handles a failed message by building a DLQ msg and sending it to the DLQ topic.
 
         :param message: The original Kafka message.
-        :param exception_message: The error message describing the failure.
-        :param exception_traceback: The stack trace of the exception.
-        :param raised_at: The datetime when the exception occurred.
-        :param failed_feature: A failed feature.
+        :param failed_features: A list of failed features.
         """
         logging.info("Handling message for DLQ.")
-        dlq_message = self._build_message(
-            message, raised_at, exception_message, exception_traceback, failed_feature
+
+        kafka_headers = self._build_headers(
+            failures_details=failures_details,
         )
+
+        dlq_message = self._build_message(message)
+
         logging.info("DLQ message built successfully.")
-        self._send_message(dlq_message)
+        self._send_message(dlq_message, kafka_headers)
 
     def _build_message(  # pylint: disable=too-many-arguments, too-many-positional-arguments
         self,
         message: KafkaMessage,
-        raised_at: str,
-        exception_message: str | None = None,
-        exception_traceback: str | None = None,
-        failed_feature: str | None = None,
     ) -> DlqOutputMessagePayload:
         """
         Builds a DLQ message payload.
 
         :param message: The original Kafka message.
-        :param exception_message: The error message.
-        :param exception_traceback: The stack trace of the exception.
-        :param raised_at: The datetime when the exception occurred.
         :return: A DlqOutputMessagePayload instance.
         """
 
-        failed_message_data = FailedMessageData(
-            raised_at=str(raised_at),
-            exception_message=str(exception_message),
-            exception_trace=exception_traceback,
-        )
-        if failed_feature:
-            logging.info("Failed feature: %s", failed_feature)
-            return DlqFailedFeaturePayload(
-                message=message.value,
-                failure=[failed_message_data],
-                failed_feature=failed_feature,
-            )
-        return DlqOutputMessagePayload(
-            message=message.value, failure=[failed_message_data]
-        )
+        return DlqOutputMessagePayload(message=message.value)
 
-    def _send_message(self, message: DlqOutputMessagePayload) -> None:
+    def _build_headers(
+        self,
+        failures_details: list[FailedFeatureData | FailedMessageData] | None,
+    ) -> list[Tuple[str, bytes]]:
         """
-        Sends a DLQ message to the Kafka DLQ topic.
+        Builds Kafka headers containing exception details.
+
+        :param failed_features: A list of FailedFeatureData objects.
+        :return: A list of Kafka headers.
+        """
+        headers: list[Tuple[str, bytes]] = []
+
+        if failures_details:
+            for index, failure in enumerate(failures_details):
+                if isinstance(failure, FailedFeatureData) and failure.failed_feature:
+                    headers.append(
+                        (
+                            f"failed_feature_{index}",
+                            failure.failed_feature.encode("utf-8"),
+                        )
+                    )
+
+                if failure.raised_at:
+                    headers.append(
+                        (f"raised_at_{index}", failure.raised_at.encode("utf-8"))
+                    )
+
+                if failure.exception_message:
+                    headers.append(
+                        (
+                            f"exception_message_{index}",
+                            failure.exception_message.encode("utf-8"),
+                        )
+                    )
+
+                if failure.exception_trace:
+                    headers.append(
+                        (
+                            f"exception_trace_{index}",
+                            json.dumps(failure.exception_trace).encode("utf-8"),
+                        )
+                    )
+
+        return headers
+
+    def _send_message(
+        self, message: DlqOutputMessagePayload, headers: list[tuple[str, bytes]]
+    ) -> None:
+        """
+        Sends a DLQ message to the Kafka DLQ topic with headers.
 
         :param message: The DLQ message payload.
+        :param headers: Kafka headers containing exception details.
         """
         serialized_message = message.model_dump_json()
-        self.producer.send(topic=self.dlq_topic, value=serialized_message, key=None)
-        logging.info("Message sent to DLQ topic successfully.")
+        self.producer.send(
+            topic=self.dlq_topic, value=serialized_message, key=None, headers=headers
+        )
+        logging.info("Message sent to DLQ topic successfully with headers: %s", headers)

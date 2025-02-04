@@ -10,7 +10,6 @@ class FailedMessageData(pydantic.BaseModel):
 
 class DlqOutputMessagePayload(pydantic.BaseModel):
     message: Any
-    failure: list[FailedMessageData]
 
 
 class DlqFailedFeaturePayload(DlqOutputMessagePayload):
