@@ -65,7 +65,7 @@ class DeadLetterHandler:
         """
         Builds Kafka headers containing exception details.
 
-        :param failures_details: A list of FailedFeatureData or FailedMessageData objects.
+        :param failures_details: A list of FailedFeatureData or FailedMessageData.
         :return: A list of Kafka headers.
         """
         headers: list[Tuple[str, bytes]] = []
