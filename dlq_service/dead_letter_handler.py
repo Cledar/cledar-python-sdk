@@ -26,7 +26,7 @@ class DeadLetterHandler:
         self.producer: KafkaProducer = producer
         self.dlq_topic: str = dlq_topic
 
-    def handle(  # pylint: disable=too-many-arguments, too-many-positional-arguments
+    def handle(
         self,
         message: KafkaMessage,
         failures_details: list[FailedFeatureData | FailedMessageData] | None,
@@ -35,20 +35,17 @@ class DeadLetterHandler:
         Handles a failed message by building a DLQ msg and sending it to the DLQ topic.
 
         :param message: The original Kafka message.
-        :param failed_features: A list of failed features.
+        :param failures_details: A list of failure details.
         """
         logging.info("Handling message for DLQ.")
 
-        kafka_headers = self._build_headers(
-            failures_details=failures_details,
-        )
-
+        kafka_headers = self._build_headers(failures_details=failures_details)
         dlq_message = self._build_message(message)
 
         logging.info("DLQ message built successfully.")
-        self._send_message(dlq_message, kafka_headers)
+        self._send_message(dlq_message, message.key, kafka_headers)
 
-    def _build_message(  # pylint: disable=too-many-arguments, too-many-positional-arguments
+    def _build_message(
         self,
         message: KafkaMessage,
     ) -> DlqOutputMessagePayload:
@@ -68,55 +65,38 @@ class DeadLetterHandler:
         """
         Builds Kafka headers containing exception details.
 
-        :param failed_features: A list of FailedFeatureData objects.
+        :param failures_details: A list of FailedFeatureData or FailedMessageData objects.
         :return: A list of Kafka headers.
         """
         headers: list[Tuple[str, bytes]] = []
 
         if failures_details:
-            for index, failure in enumerate(failures_details):
-                if isinstance(failure, FailedFeatureData) and failure.failed_feature:
-                    headers.append(
-                        (
-                            f"failed_feature_{index}",
-                            failure.failed_feature.encode("utf-8"),
-                        )
-                    )
-
-                if failure.raised_at:
-                    headers.append(
-                        (f"raised_at_{index}", failure.raised_at.encode("utf-8"))
-                    )
-
-                if failure.exception_message:
-                    headers.append(
-                        (
-                            f"exception_message_{index}",
-                            failure.exception_message.encode("utf-8"),
-                        )
-                    )
-
-                if failure.exception_trace:
-                    headers.append(
-                        (
-                            f"exception_trace_{index}",
-                            json.dumps(failure.exception_trace).encode("utf-8"),
-                        )
-                    )
+            failures_json = json.dumps(
+                [failure.model_dump() for failure in failures_details]
+            )
+            headers.append(("failures_details", failures_json.encode("utf-8")))
 
         return headers
 
     def _send_message(
-        self, message: DlqOutputMessagePayload, headers: list[tuple[str, bytes]]
+        self,
+        message: DlqOutputMessagePayload,
+        key: bytes | None,
+        headers: list[tuple[str, bytes]],
     ) -> None:
         """
         Sends a DLQ message to the Kafka DLQ topic with headers.
 
         :param message: The DLQ message payload.
+        :param key: The original Kafka message key.
         :param headers: Kafka headers containing exception details.
         """
         serialized_message = message.model_dump_json()
         self.producer.send(
-            topic=self.dlq_topic, value=serialized_message, key=None, headers=headers
+            topic=self.dlq_topic, value=serialized_message, key=key, headers=headers
         )
-        logging.info("Message sent to DLQ topic successfully with headers: %s", headers)
+        logging.info(
+            "Message sent to DLQ topic successfully with key: %s and headers: %s",
+            key,
+            headers,
+        )
