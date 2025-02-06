@@ -81,7 +81,7 @@ class DeadLetterHandler:
     def _send_message(
         self,
         message: DlqOutputMessagePayload,
-        key: bytes | None,
+        key: str | None,
         headers: list[tuple[str, bytes]],
     ) -> None:
         """
