@@ -5,9 +5,8 @@ import json
 from ..kafka_service.kafka_producer import KafkaProducer  # type: ignore[misc] # pylint: disable=relative-beyond-top-level
 from ..kafka_service.schemas import KafkaMessage  # type: ignore[misc] # pylint: disable=relative-beyond-top-level
 from .output import (  # pylint: disable=relative-beyond-top-level
-    DlqOutputMessagePayload,
-    FailedFeatureData,
     FailedMessageData,
+    DlqOutputMessagePayload,
 )
 
 
@@ -29,13 +28,13 @@ class DeadLetterHandler:
     def handle(
         self,
         message: KafkaMessage,
-        failures_details: list[FailedFeatureData | FailedMessageData] | None,
+        failures_details: list[FailedMessageData] | None,
     ) -> None:
         """
         Handles a failed message by building a DLQ msg and sending it to the DLQ topic.
 
         :param message: The original Kafka message.
-        :param failures_details: A list of failure details.
+        :param failures_details: A list of FailedMessageData.
         """
         logging.info("Handling message for DLQ.")
 
@@ -60,12 +59,12 @@ class DeadLetterHandler:
 
     def _build_headers(
         self,
-        failures_details: list[FailedFeatureData | FailedMessageData] | None,
+        failures_details: list[FailedMessageData] | None,
     ) -> list[Tuple[str, bytes]]:
         """
         Builds Kafka headers containing exception details.
 
-        :param failures_details: A list of FailedFeatureData or FailedMessageData.
+        :param failures_details: A list of FailedMessageData.
         :return: A list of Kafka headers.
         """
         headers: list[Tuple[str, bytes]] = []
