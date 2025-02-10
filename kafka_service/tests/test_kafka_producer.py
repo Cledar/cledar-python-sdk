@@ -84,6 +84,7 @@ def test_send(
         ),
         value=TEST_VALUE,
         key=TEST_KEY,
+        headers=None,
         callback=delivery_callback,
     )
     mock_producer_instance.poll.assert_called_once()
