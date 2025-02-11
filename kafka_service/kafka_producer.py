@@ -30,7 +30,13 @@ class KafkaProducer(BaseKafkaClient):
         )
         self.start_connection_check_thread()
 
-    def send(self, topic: str, value: str | None, key: str | None) -> None:
+    def send(
+        self,
+        topic: str,
+        value: str | None,
+        key: str | None,
+        headers: list[tuple[str, bytes]] | None = None,
+    ) -> None:
         if self.client is None:
             logger.error(
                 "KafkaProducer is not connected. Call 'connect' first.",
@@ -51,10 +57,15 @@ class KafkaProducer(BaseKafkaClient):
                     "topic": topic,
                     "msg_id": extract_id_from_value(value),
                     "key": key,
+                    "headers": headers,
                 },
             )
             self.client.produce(
-                topic=topic, value=value, key=key, callback=delivery_callback
+                topic=topic,
+                value=value,
+                key=key,
+                headers=headers,
+                callback=delivery_callback,
             )
             self.client.poll(0)
 
@@ -62,7 +73,11 @@ class KafkaProducer(BaseKafkaClient):
             logger.warning("Buffer full, waiting for free space on the queue")
             self.client.poll(self.config.kafka_block_buffer_time_sec)
             self.client.produce(
-                topic=topic, value=value, key=key, callback=delivery_callback
+                topic=topic,
+                value=value,
+                key=key,
+                headers=headers,
+                callback=delivery_callback,
             )
 
         except KafkaException as exception:

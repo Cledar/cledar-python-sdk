@@ -1,11 +1,12 @@
 import logging
-from datetime import datetime
+from typing import Tuple
+import json
 
 from ..kafka_service.kafka_producer import KafkaProducer  # type: ignore[misc] # pylint: disable=relative-beyond-top-level
 from ..kafka_service.schemas import KafkaMessage  # type: ignore[misc] # pylint: disable=relative-beyond-top-level
 from .output import (  # pylint: disable=relative-beyond-top-level
-    DlqOutputMessagePayload,
     FailedMessageData,
+    DlqOutputMessagePayload,
 )
 
 
@@ -27,58 +28,74 @@ class DeadLetterHandler:
     def handle(
         self,
         message: KafkaMessage,
-        exception_message: str,
-        exception_traceback: str,
-        raised_at: datetime,
+        failures_details: list[FailedMessageData] | None,
     ) -> None:
         """
         Handles a failed message by building a DLQ msg and sending it to the DLQ topic.
 
         :param message: The original Kafka message.
-        :param exception_message: The error message describing the failure.
-        :param exception_traceback: The stack trace of the exception.
-        :param raised_at: The datetime when the exception occurred.
+        :param failures_details: A list of FailedMessageData.
         """
         logging.info("Handling message for DLQ.")
-        dlq_message = self._build_message(
-            message, exception_message, exception_traceback, raised_at
-        )
+
+        kafka_headers = self._build_headers(failures_details=failures_details)
+        dlq_message = self._build_message(message)
+
         logging.info("DLQ message built successfully.")
-        self._send_message(dlq_message)
+        self._send_message(dlq_message, message.key, kafka_headers)
 
     def _build_message(
         self,
         message: KafkaMessage,
-        exception_message: str,
-        exception_traceback: str,
-        raised_at: datetime,
     ) -> DlqOutputMessagePayload:
         """
         Builds a DLQ message payload.
 
         :param message: The original Kafka message.
-        :param exception_message: The error message.
-        :param exception_traceback: The stack trace of the exception.
-        :param raised_at: The datetime when the exception occurred.
         :return: A DlqOutputMessagePayload instance.
         """
 
-        failed_message_data = FailedMessageData(
-            raised_at=str(raised_at),
-            exception_message=str(exception_message),
-            exception_trace=exception_traceback,
-        )
+        return DlqOutputMessagePayload(message=message.value)
 
-        return DlqOutputMessagePayload(
-            message=message.value, failure=[failed_message_data]
-        )
-
-    def _send_message(self, message: DlqOutputMessagePayload) -> None:
+    def _build_headers(
+        self,
+        failures_details: list[FailedMessageData] | None,
+    ) -> list[Tuple[str, bytes]]:
         """
-        Sends a DLQ message to the Kafka DLQ topic.
+        Builds Kafka headers containing exception details.
+
+        :param failures_details: A list of FailedMessageData.
+        :return: A list of Kafka headers.
+        """
+        headers: list[Tuple[str, bytes]] = []
+
+        if failures_details:
+            failures_json = json.dumps(
+                [failure.model_dump() for failure in failures_details]
+            )
+            headers.append(("failures_details", failures_json.encode("utf-8")))
+
+        return headers
+
+    def _send_message(
+        self,
+        message: DlqOutputMessagePayload,
+        key: str | None,
+        headers: list[tuple[str, bytes]],
+    ) -> None:
+        """
+        Sends a DLQ message to the Kafka DLQ topic with headers.
 
         :param message: The DLQ message payload.
+        :param key: The original Kafka message key.
+        :param headers: Kafka headers containing exception details.
         """
         serialized_message = message.model_dump_json()
-        self.producer.send(topic=self.dlq_topic, value=serialized_message, key=None)
-        logging.info("Message sent to DLQ topic successfully.")
+        self.producer.send(
+            topic=self.dlq_topic, value=serialized_message, key=key, headers=headers
+        )
+        logging.info(
+            "Message sent to DLQ topic successfully with key: %s and headers: %s",
+            key,
+            headers,
+        )
