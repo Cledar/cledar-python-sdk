@@ -308,5 +308,6 @@ def test_parse_mesage_raise() -> None:
                 key=fake.text(),
                 topic=fake.text(),
                 offset=fake.random_int(),
+                partition=fake.random_int(),
             )
         )
