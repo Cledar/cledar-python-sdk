@@ -34,4 +34,5 @@ class InputParser(Generic[Payload]):
             payload=obj,
             topic=message.topic,
             offset=message.offset,
+            partition=message.partition,
         )

@@ -16,6 +16,7 @@ TEST_TOPIC = "test-topic"
 TEST_VALUE = "test-value"
 TEST_KEY = "test-key"
 TEST_OFFSET = 1
+TEST_PARTITION = 2
 TEST_GROUP_ID = "test-group-id"
 
 mock_consumer_path = "kafka_service.kafka_consumer.Consumer"
@@ -94,6 +95,7 @@ def test_consume_next(mock_consumer: MagicMock, consumer: KafkaConsumer) -> None
     mock_msg.value.return_value = TEST_VALUE.encode("utf-8")
     mock_msg.key.return_value = TEST_KEY.encode("utf-8")
     mock_msg.offset.return_value = TEST_OFFSET
+    mock_msg.partition.return_value = TEST_PARTITION
     mock_consumer_instance.poll.return_value = mock_msg
 
     consumer.connect()
@@ -105,6 +107,7 @@ def test_consume_next(mock_consumer: MagicMock, consumer: KafkaConsumer) -> None
         value=TEST_VALUE,
         key=TEST_KEY,
         offset=TEST_OFFSET,
+        partition=TEST_PARTITION,
     )
 
 
@@ -196,6 +199,7 @@ def test_commit_success(mock_consumer: MagicMock, consumer: KafkaConsumer) -> No
     mock_consumer_instance = mock_consumer.return_value
     mock_msg = MagicMock(spec=Message)
     mock_msg.offset.return_value = TEST_OFFSET
+    mock_msg.partition.return_value = TEST_PARTITION
 
     consumer.connect()
     consumer.subscribe([TEST_TOPIC])
@@ -205,6 +209,7 @@ def test_commit_success(mock_consumer: MagicMock, consumer: KafkaConsumer) -> No
         value=TEST_VALUE,
         key=TEST_KEY,
         offset=TEST_OFFSET,
+        partition=TEST_PARTITION,
     )
 
     consumer.commit(kafka_message)
@@ -225,6 +230,7 @@ def test_commit_failure(mock_consumer: MagicMock, consumer: KafkaConsumer) -> No
         value=TEST_VALUE,
         key=TEST_KEY,
         offset=TEST_OFFSET,
+        partition=TEST_PARTITION,
     )
 
     with pytest.raises(KafkaException):
@@ -239,6 +245,7 @@ def test_commit_without_connection(consumer: KafkaConsumer) -> None:
         value=TEST_VALUE,
         key=TEST_KEY,
         offset=TEST_OFFSET,
+        partition=TEST_PARTITION,
     )
 
     with pytest.raises(KafkaConsumerNotConnectedError):
@@ -256,6 +263,7 @@ def test_consume_and_commit_after_processing(
     mock_msg.value.return_value = TEST_VALUE.encode("utf-8")
     mock_msg.key.return_value = TEST_KEY.encode("utf-8")
     mock_msg.offset.return_value = TEST_OFFSET
+    mock_msg.partition.return_value = TEST_PARTITION
     mock_consumer_instance.poll.return_value = mock_msg
     mock_processing_function = MagicMock()
 
@@ -297,6 +305,7 @@ def test_commit_failure_after_processing(
     mock_msg.value.return_value = TEST_VALUE.encode("utf-8")
     mock_msg.key.return_value = TEST_KEY.encode("utf-8")
     mock_msg.offset.return_value = TEST_OFFSET
+    mock_msg.partition.return_value = TEST_PARTITION
     mock_consumer_instance.poll.return_value = mock_msg
 
     mock_processing_function = MagicMock()

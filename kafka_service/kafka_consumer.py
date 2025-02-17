@@ -94,6 +94,7 @@ class KafkaConsumer(BaseKafkaClient):
                 value=msg.value().decode("utf-8") if msg.value() else None,
                 key=msg.key().decode("utf-8") if msg.key() else None,
                 offset=msg.offset(),
+                partition=msg.partition(),
             )
 
         except KafkaException as exception:
@@ -107,7 +108,10 @@ class KafkaConsumer(BaseKafkaClient):
 
         try:
             self.client.commit(asynchronous=True)
-            logger.debug("Commit requested.", extra={"offset": message.offset})
+            logger.debug(
+                "Commit requested.",
+                extra={"offset": message.offset, "partition": message.partition},
+            )
 
         except KafkaException as exception:
             logger.exception("Failed to commit offsets.")
