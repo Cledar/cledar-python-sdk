@@ -1,12 +1,11 @@
 import logging
-from typing import Tuple
+from typing import Tuple, Any
 import json
 
 from ..kafka_service.kafka_producer import KafkaProducer  # type: ignore[misc] # pylint: disable=relative-beyond-top-level
 from ..kafka_service.schemas import KafkaMessage  # type: ignore[misc] # pylint: disable=relative-beyond-top-level
 from .output import (  # pylint: disable=relative-beyond-top-level
     FailedMessageData,
-    DlqOutputMessagePayload,
 )
 
 
@@ -31,7 +30,7 @@ class DeadLetterHandler:
         failures_details: list[FailedMessageData] | None,
     ) -> None:
         """
-        Handles a failed message by building a DLQ msg and sending it to the DLQ topic.
+        Handles a failed message by sending it to the DLQ topic.
 
         :param message: The original Kafka message.
         :param failures_details: A list of FailedMessageData.
@@ -39,23 +38,9 @@ class DeadLetterHandler:
         logging.info("Handling message for DLQ.")
 
         kafka_headers = self._build_headers(failures_details=failures_details)
-        dlq_message = self._build_message(message)
 
         logging.info("DLQ message built successfully.")
-        self._send_message(dlq_message, message.key, kafka_headers)
-
-    def _build_message(
-        self,
-        message: KafkaMessage,
-    ) -> DlqOutputMessagePayload:
-        """
-        Builds a DLQ message payload.
-
-        :param message: The original Kafka message.
-        :return: A DlqOutputMessagePayload instance.
-        """
-
-        return DlqOutputMessagePayload(message=message.value)
+        self._send_message(message.value, message.key, kafka_headers)
 
     def _build_headers(
         self,
@@ -79,7 +64,7 @@ class DeadLetterHandler:
 
     def _send_message(
         self,
-        message: DlqOutputMessagePayload,
+        message: Any,
         key: str | None,
         headers: list[tuple[str, bytes]],
     ) -> None:
@@ -90,7 +75,7 @@ class DeadLetterHandler:
         :param key: The original Kafka message key.
         :param headers: Kafka headers containing exception details.
         """
-        serialized_message = message.model_dump_json()
+        serialized_message = json.dumps(message)
         self.producer.send(
             topic=self.dlq_topic, value=serialized_message, key=key, headers=headers
         )
