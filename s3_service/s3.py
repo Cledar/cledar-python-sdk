@@ -1,5 +1,6 @@
 import io
 import logging
+import socket
 import traceback
 from dataclasses import dataclass
 from datetime import datetime
@@ -64,20 +65,29 @@ class S3Service:
             logger.exception("Failed to upload buffer to S3")
             raise exception
 
-    def read_file(self, bucket: str, key: str) -> bytes:
-        try:
-            logger.debug("Reading file from S3", extra={"bucket": bucket, "key": key})
-            response: dict[str, Any] = self.client.get_object(Bucket=bucket, Key=key)
-            content_body: StreamingBody = response["Body"]
-            content: bytes = content_body.read()
-            logger.debug("Read file from S3", extra={"bucket": bucket, "key": key})
-            return content
-        except Exception as exception:
-            logger.error(
-                "Failed to read file from S3",
-                extra={"exception": str(exception), "trace": traceback.format_exc()},
-            )
-            raise exception
+    def read_file(self, bucket: str, key: str, max_tries: int = 3) -> bytes:
+        logger.debug("Reading file from S3...", extra={"bucket": bucket, "key": key})
+        for attempt in range(max_tries):
+            try:
+                response: dict[str, Any] = self.client.get_object(
+                    Bucket=bucket, Key=key
+                )
+                content_body: StreamingBody = response["Body"]
+                content: bytes = content_body.read()
+                logger.debug("File read from S3", extra={"bucket": bucket, "key": key})
+                return content
+            except (botocore.exceptions.IncompleteReadError, socket.error) as exception:
+                if attempt == max_tries - 1:
+                    logger.exception(
+                        f"Failed to read file from S3 after {max_tries} retries",
+                        extra={"bucket": bucket, "key": key},
+                    )
+                    raise exception
+                logger.warning(
+                    "Failed to read file from S3, retrying...",
+                    extra={"bucket": bucket, "key": key},
+                )
+        raise NotImplementedError("This should never be reached")
 
     def upload_file(self, file_path: str, bucket: str, key: str) -> None:
         try:
