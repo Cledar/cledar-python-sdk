@@ -1,5 +1,5 @@
 import logging
-from typing import Tuple, Any
+from typing import Tuple
 import json
 
 from ..kafka_service.kafka_producer import KafkaProducer  # type: ignore[misc] # pylint: disable=relative-beyond-top-level
@@ -64,7 +64,7 @@ class DeadLetterHandler:
 
     def _send_message(
         self,
-        message: Any,
+        message: str | None,
         key: str | None,
         headers: list[tuple[str, bytes]],
     ) -> None:
@@ -75,9 +75,8 @@ class DeadLetterHandler:
         :param key: The original Kafka message key.
         :param headers: Kafka headers containing exception details.
         """
-        serialized_message = json.dumps(message)
         self.producer.send(
-            topic=self.dlq_topic, value=serialized_message, key=key, headers=headers
+            topic=self.dlq_topic, value=message, key=key, headers=headers
         )
         logging.info(
             "Message sent to DLQ topic successfully with key: %s and headers: %s",
