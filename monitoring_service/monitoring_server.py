@@ -41,8 +41,7 @@ class EndpointFilter(logging.Filter):
 
 
 class MonitoringServer:
-    # TODO(Husia) remove /health after finishing subtasks of KSR-339 - task KSR-700
-    PATHS_EXCLUDED_FOR_LOGGING = ["/health", "/healthz/readiness", "/healthz/liveness"]
+    PATHS_EXCLUDED_FOR_LOGGING = ["/healthz/readiness", "/healthz/liveness"]
 
     def __init__(
         self,
@@ -58,13 +57,6 @@ class MonitoringServer:
         )
 
     def add_paths(self, app: FastAPI) -> None:
-        # TODO(Husia) Remove /health after finishing subtasks of KSR-339 - task KSR-700
-        @app.get("/health")
-        async def get_health() -> Response:
-            return Response(
-                status_code=200,
-            )
-
         @app.get("/metrics")
         async def get_metrics() -> Response:
             return Response(
@@ -119,11 +111,3 @@ class MonitoringServer:
 
 def run_monitoring_server(host: str, port: int, local_app: FastAPI) -> None:
     uvicorn.run(local_app, host=host, port=port)
-
-
-# TODO(Husia) Remove this method after finishing subtasks of KSR-339 - task KSR-700
-def start_monitoring_server(host: str, port: int) -> None:
-    default_readiness_checks = dict({"default": lambda: True})
-    config = MonitoringServerConfig(default_readiness_checks)
-    monitoring_server = MonitoringServer(host, port, config)
-    monitoring_server.start_monitoring_server()

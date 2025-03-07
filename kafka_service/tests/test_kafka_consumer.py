@@ -282,7 +282,7 @@ def test_consume_and_commit_after_processing(
 
 
 def test_no_commit_on_none_message(consumer: KafkaConsumer) -> None:
-    with patch.object(consumer, "consume_next", return_value=None) as mock_consume_next:
+    with patch.object(consumer, "consume_next", return_value=None):
         with patch.object(consumer, "commit") as mock_commit:
             message = consumer.consume_next()
             assert message is None
