@@ -1,8 +1,8 @@
 from typing import Any
 from dataclasses import dataclass
 
-from redis_service.model import BaseConfigClass
-from redis_service.redis_config_store import RedisConfigStore
+from .model import BaseConfigClass
+from .redis_config_store import RedisConfigStore
 
 
 @dataclass
