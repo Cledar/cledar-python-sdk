@@ -7,9 +7,9 @@ from dataclasses import asdict
 
 from redis import Redis, ConnectionError as RedisConnectionError
 
-from redis_service.model import ConfigAbstract as T
+from .model import ConfigAbstract as T
 
-from redis_service.logger import logger
+from .logger import logger
 
 KEY_EVENT_FORMAT = "__keyspace@{DB}__:{KEY}"
 KEY_EVENT_REGEX = r"__keyspace@(?P<db>\d+)__:(?P<key>.+)"
