@@ -1,22 +1,3 @@
-## Pre-commit setup
-
-To get started follow these steps:
-
-1. Install `pre-commit` by running the following command:
-    ```
-    pip install pre-commit
-    ```
-
-2. Once `pre-commit` is installed, set up the pre-commit hooks by running:
-    ```
-    pre-commit install
-    ```
-
-3. Pre-commit hooks will analyze only commited files. To analyze all files after installation run the following:
-    ```
-    pre-commit run --all-files
-    ```
-
 # Common Services - Python + Kafka
 
 ## Project Description
@@ -57,9 +38,11 @@ Unit tests are implemented using **pytest** and **unittest**.
 
 ## Linting 
 
+If you want to run linting or type checker manually, you can use the following commands. Pre-commit will run these checks automatically before each commit.
 ```
 black .
 pylint $(git ls-files *.py)
+mypy .
 ```
 
 ## Pre-commit setup
@@ -80,17 +63,19 @@ To get started follow these steps:
     ```
     pre-commit run --all-files
     ```
-4. To skip pre-commit hooks for a single commit, use the `--no-verify` flag:
-    ```
-    git commit -m "Your commit message" --no-verify
-    ```
 
 
 ### Automatic Fixing Before Commits:
 pre-commit will run Black, pylint and mypy during the commit process:
-```bash
-git commit -m "Describe your changes"
-```
+
+   ```bash
+   git commit -m "Describe your changes"
+   ```
+To skip pre-commit hooks for a single commit, use the `--no-verify` flag:
+
+    ```bash
+    git commit -m "Your commit message" --no-verify
+    ```
 
 ---
 
@@ -123,4 +108,5 @@ Want to contribute? Please submit a pull request!
 
 ## License
 
-This project is licensed under the MIT License.
+Unlicensed
+```
