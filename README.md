@@ -100,9 +100,14 @@ To skip pre-commit hooks for a single commit, use the `--no-verify` flag:
 
 ---
 
-## Contributing
+## Commit conventions
 
-Want to contribute? Please submit a pull request!
+We use [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) for our commit messages. This helps us to create a better, more readable changelog.
+
+Example of a commit message:
+```bash
+refactor(KSR-XXX): spaghetti code is now a carbonara
+```
 
 ---
 
