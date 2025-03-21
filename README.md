@@ -16,6 +16,16 @@
    ```bash
    poetry install
    ```
+3. **How to use this repo in your project**
+   To use this repo in your project, you can add it as a submodule like this:
+   ```bash
+   git submodule add <submodule_url> [optional_path]
+   ```
+   Then you can import the services in your project like this:
+   ```python
+   from common_services.kafka_service import KafkaService
+   ```
+   etc.
 
 ## Testing
 
