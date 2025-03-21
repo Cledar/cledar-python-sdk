@@ -23,7 +23,8 @@
    ```
    Then you can import the services in your project like this:
    ```python
-   from common_services.kafka_service import KafkaService
+   from common_services.kafka_service.kafka_producer import KafkaProducer
+
    ```
    etc.
 
