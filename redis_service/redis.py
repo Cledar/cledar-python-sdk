@@ -13,7 +13,7 @@ logger = logging.getLogger("redis_service")
 class CustomEncoder(json.JSONEncoder):
     """Custom JSON encoder that can handle Enum objects and datetime objects."""
 
-    def default(self, o) -> Any:
+    def default(self, o: Any) -> Any:
         if isinstance(o, Enum):
             return o.name
         if isinstance(o, datetime):
