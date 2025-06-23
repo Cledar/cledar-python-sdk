@@ -1,3 +1,5 @@
+from datetime import datetime
+from enum import Enum
 from typing import Optional, Any, Type, TypeVar
 import json
 import logging
@@ -6,6 +8,18 @@ from pydantic import BaseModel, ValidationError
 import redis
 
 logger = logging.getLogger("redis_service")
+
+
+class CustomEncoder(json.JSONEncoder):
+    """Custom JSON encoder that can handle Enum objects and datetime objects."""
+
+    def default(self, o):
+        if isinstance(o, Enum):
+            return o.name
+        if isinstance(o, datetime):
+            return o.isoformat()
+        return super().default(o)
+
 
 T = TypeVar("T", bound=BaseModel)
 
