@@ -75,7 +75,7 @@ class RedisService:
 
         try:
             if isinstance(value, (dict, list)):
-                value = json.dumps(value)
+                value = json.dumps(value, cls=CustomEncoder)
             return bool(self._client.set(key, value))
         except (redis.RedisError, TypeError, ValueError):
             logger.exception("Error setting Redis key.", extra={"key": key})
