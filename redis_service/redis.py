@@ -15,7 +15,7 @@ class CustomEncoder(json.JSONEncoder):
 
     def default(self, o: Any) -> Any:
         if isinstance(o, Enum):
-            return o.name
+            return o.name.lower()
         if isinstance(o, datetime):
             return o.isoformat()
         return super().default(o)
