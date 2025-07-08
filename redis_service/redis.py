@@ -106,3 +106,14 @@ class RedisService:
         except redis.RedisError:
             logger.exception("Error getting Redis key.", extra={"key": key})
             return None
+
+    def get_raw(self, key: str) -> Any | None:
+        if self._client is None:
+            logger.error("Redis client not initialized.")
+            return None
+
+        try:
+            return self._client.get(key)
+        except redis.RedisError:
+            logger.exception("Error getting Redis key.", extra={"key": key})
+            return None
