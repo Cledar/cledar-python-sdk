@@ -74,6 +74,7 @@ class RedisService:
             return False
 
         try:
+
             if isinstance(value, (dict, list)):
                 value = json.dumps(value, cls=CustomEncoder)
             return bool(self._client.set(key, value))
@@ -103,6 +104,17 @@ class RedisService:
                 )
                 return None
 
+        except redis.RedisError:
+            logger.exception("Error getting Redis key.", extra={"key": key})
+            return None
+
+    def get_raw(self, key: str) -> Any:
+        if self._client is None:
+            logger.error("Redis client not initialized.")
+            return None
+
+        try:
+            return self._client.get(key)
         except redis.RedisError:
             logger.exception("Error getting Redis key.", extra={"key": key})
             return None
