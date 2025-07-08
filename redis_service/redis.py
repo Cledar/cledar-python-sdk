@@ -74,7 +74,6 @@ class RedisService:
             return False
 
         try:
-
             if isinstance(value, (dict, list)):
                 value = json.dumps(value, cls=CustomEncoder)
             return bool(self._client.set(key, value))
