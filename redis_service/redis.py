@@ -79,7 +79,7 @@ class RedisService:
 
             try:
                 # Try to parse as JSON
-                if model is None:
+                if model is Any:
                     return json.loads(str(value))
                 else:
                     return model.model_validate(json.loads(str(value)))
