@@ -67,7 +67,7 @@ class RedisService:
             logger.exception("Error setting Redis key.", extra={"key": key})
             return False
 
-    def get(self, key: str, model: Type[T]) -> T | None:
+    def get(self, key: str, model: Type[T] | None = None) -> T | Any:
         if self._client is None:
             logger.error("Redis client not initialized.")
             return None
@@ -79,7 +79,10 @@ class RedisService:
 
             try:
                 # Try to parse as JSON
-                return model.model_validate(json.loads(str(value)))
+                if model is None:
+                    return json.loads(str(value))
+                else:
+                    return model.model_validate(json.loads(str(value)))
             except json.JSONDecodeError:
                 logger.exception("JSON Decode error.", extra={"key": key})
                 return None
