@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import Enum
-from typing import Optional, Any, Type, TypeVar
+from typing import Optional, Any, Type, TypeVar, cast
 import json
 import logging
 from dataclasses import dataclass
@@ -117,3 +117,15 @@ class RedisService:
         except redis.RedisError:
             logger.exception("Error getting Redis key.", extra={"key": key})
             return None
+
+    def list_keys(self, pattern: str) -> list[str]:
+        if self._client is None:
+            logger.error("Redis client not initialized.")
+            return []
+
+        try:
+            keys_result = self._client.keys(pattern)
+            return cast(list[str], keys_result)
+        except redis.RedisError:
+            logger.exception("Error listing Redis keys.", extra={"pattern": pattern})
+            return []
