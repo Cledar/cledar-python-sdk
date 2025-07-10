@@ -67,7 +67,7 @@ class RedisService:
             logger.exception("Error setting Redis key.", extra={"key": key})
             return False
 
-    def get(self, key: str, model: Type[T] | None = None) -> T | Any:
+    def get(self, key: str, model: Type[T] | Any = Any) -> T:
         if self._client is None:
             logger.error("Redis client not initialized.")
             return None
