@@ -78,11 +78,10 @@ class RedisService:
                 return None
 
             try:
-                # Try to parse as JSON
                 if model is Any:
                     return json.loads(str(value))
-                else:
-                    return model.model_validate(json.loads(str(value)))
+                
+                return model.model_validate(json.loads(str(value)))
             except json.JSONDecodeError:
                 logger.exception("JSON Decode error.", extra={"key": key})
                 return None
