@@ -4,7 +4,7 @@ from typing import Optional, Any, Type, TypeVar, cast
 import json
 import logging
 from dataclasses import dataclass
-from pydantic import BaseModel, ValidationError, TypeAdapter
+from pydantic import BaseModel, ValidationError
 import redis
 
 logger = logging.getLogger("redis_service")
@@ -74,9 +74,6 @@ class RedisService:
         if isinstance(value, BaseModel):
             return value.model_dump()
         if isinstance(value, list):
-            if value and all(isinstance(item, BaseModel) for item in value):
-                ta = TypeAdapter(list[Any])
-                return ta.dump_python(value)
             return [self._prepare_for_serialization(item) for item in value]
         if isinstance(value, dict):
             return {k: self._prepare_for_serialization(v) for k, v in value.items()}
