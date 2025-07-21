@@ -13,7 +13,7 @@ class UniversalFormatter(logging.Formatter):
     # Predefined exclusions - keys that should always be excluded
     DEFAULT_EXCLUDE_KEYS = {"message", "asctime"}
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         """
         Initialize the formatter with standard formatter parameters.
 
@@ -25,7 +25,7 @@ class UniversalFormatter(logging.Formatter):
         self._standard_attrs = None
         self._config_exclude_keys = self._load_exclude_keys_from_config()
 
-    def _load_exclude_keys_from_config(self):
+    def _load_exclude_keys_from_config(self) -> set[str]:
         """
         Load additional keys to exclude from the configuration file.
 
@@ -42,7 +42,7 @@ class UniversalFormatter(logging.Formatter):
             pass
         return set()
 
-    def _get_standard_attrs(self):
+    def _get_standard_attrs(self) -> set[str]:
         """
         Get the set of standard attributes to exclude from log records.
 
@@ -71,7 +71,7 @@ class UniversalFormatter(logging.Formatter):
             self._standard_attrs = all_excludes
         return self._standard_attrs
 
-    def format(self, record):
+    def format(self, record: logging.LogRecord) -> str:
         """
         Format the log record, adding any extra attributes not in the standard set.
 
