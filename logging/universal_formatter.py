@@ -1,5 +1,6 @@
 import logging
 import configparser
+from typing import Any
 
 
 class UniversalFormatter(logging.Formatter):
@@ -13,7 +14,7 @@ class UniversalFormatter(logging.Formatter):
     # Predefined exclusions - keys that should always be excluded
     DEFAULT_EXCLUDE_KEYS = {"message", "asctime"}
 
-    def __init__(self, *args: object, **kwargs: object) -> None:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         """
         Initialize the formatter with standard formatter parameters.
 
@@ -42,7 +43,7 @@ class UniversalFormatter(logging.Formatter):
             pass
         return set()
 
-    def _get_standard_attrs(self) -> set[str] | None:
+    def _get_standard_attrs(self) -> set[str]:
         """
         Get the set of standard attributes to exclude from log records.
 
