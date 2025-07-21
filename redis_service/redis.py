@@ -68,15 +68,29 @@ class RedisService:
             logger.exception("Redis connection error during health check.")
             return False
 
+    def _prepare_for_serialization(self, value: Any) -> Any:
+        """Recursively process data structures, converting BaseModel instances
+        to serializable dicts."""
+        if isinstance(value, BaseModel):
+            return value.model_dump()
+        if isinstance(value, list):
+            return [self._prepare_for_serialization(item) for item in value]
+        if isinstance(value, dict):
+            return {k: self._prepare_for_serialization(v) for k, v in value.items()}
+        return value
+
     def set(self, key: str, value: Any) -> bool:
         if self._client is None:
             logger.error("Redis client not initialized.")
             return False
 
         try:
-            if isinstance(value, (dict, list)):
-                value = json.dumps(value, cls=CustomEncoder)
-            return bool(self._client.set(key, value))
+            processed_value = self._prepare_for_serialization(value)
+            if isinstance(processed_value, (dict, list)):
+                final_value = json.dumps(processed_value, cls=CustomEncoder)
+            else:
+                final_value = processed_value
+            return bool(self._client.set(key, final_value))
         except (redis.RedisError, TypeError, ValueError):
             logger.exception("Error setting Redis key.", extra={"key": key})
             return False
