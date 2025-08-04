@@ -89,6 +89,6 @@ class UniversalFormatter(logging.Formatter):
             if k not in self._get_standard_attrs()
         }
         if extras:
-            extras_str = ", ".join(f"{k}={v}" for k, v in extras.items())
-            return f"{base} | {extras_str}"
+            extras_str = "\n".join(f"    {k}: {v}" for k, v in extras.items())
+            return f"{base}\n{extras_str}"
         return base
