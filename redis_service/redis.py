@@ -143,3 +143,39 @@ class RedisService:
         except redis.RedisError:
             logger.exception("Error listing Redis keys.", extra={"pattern": pattern})
             return []
+
+    def mget(self, keys: list[str], model: Type[T]) -> list[T | None]:
+        if self._client is None:
+            logger.error("Redis client not initialized.")
+            return [None] * len(keys)
+
+        if not keys:
+            return []
+
+        try:
+            values = cast(list[Any], self._client.mget(keys))
+            results: list[T | None] = []
+
+            for i, value in enumerate(values):
+                if value is None:
+                    results.append(None)
+                    continue
+
+                try:
+                    # Try to parse as JSON
+                    validated_data = model.model_validate(json.loads(str(value)))
+                    results.append(validated_data)
+                except json.JSONDecodeError:
+                    logger.exception("JSON Decode error.", extra={"key": keys[i]})
+                    results.append(None)
+                except ValidationError:
+                    logger.exception(
+                        "Validation error.",
+                        extra={"key": keys[i], "model": model.__name__},
+                    )
+                    results.append(None)
+
+            return results
+        except redis.RedisError:
+            logger.exception("Error getting multiple Redis keys.")
+            return [None] * len(keys)
