@@ -179,3 +179,15 @@ class RedisService:
         except redis.RedisError:
             logger.exception("Error getting multiple Redis keys.")
             return [None] * len(keys)
+
+    def delete(self, key: str) -> bool:
+        if self._client is None:
+            logger.error("Redis client not initialized.")
+            return False
+
+        try:
+            result = self._client.delete(key)
+            return bool(result)
+        except redis.RedisError:
+            logger.exception("Error deleting Redis key.", extra={"key": key})
+            return False
