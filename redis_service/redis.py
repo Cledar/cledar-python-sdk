@@ -156,7 +156,7 @@ class RedisService:
             values = cast(list[Any], self._client.mget(keys))
             results: list[T | None] = []
 
-            for i, value in enumerate(values):
+            for value, key in zip(values, keys):
                 if value is None:
                     results.append(None)
                     continue
@@ -166,12 +166,12 @@ class RedisService:
                     validated_data = model.model_validate(json.loads(str(value)))
                     results.append(validated_data)
                 except json.JSONDecodeError:
-                    logger.exception("JSON Decode error.", extra={"key": keys[i]})
+                    logger.exception("JSON Decode error.", extra={"key": key})
                     results.append(None)
                 except ValidationError:
                     logger.exception(
                         "Validation error.",
-                        extra={"key": keys[i], "model": model.__name__},
+                        extra={"key": key, "model": model.__name__},
                     )
                     results.append(None)
 
