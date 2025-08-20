@@ -143,3 +143,51 @@ class RedisService:
         except redis.RedisError:
             logger.exception("Error listing Redis keys.", extra={"pattern": pattern})
             return []
+
+    def mget(self, keys: list[str], model: Type[T]) -> list[T | None]:
+        if self._client is None:
+            logger.error("Redis client not initialized.")
+            return [None] * len(keys)
+
+        if not keys:
+            return []
+
+        try:
+            values = cast(list[Any], self._client.mget(keys))
+            results: list[T | None] = []
+
+            for value, key in zip(values, keys):
+                if value is None:
+                    results.append(None)
+                    continue
+
+                try:
+                    # Try to parse as JSON
+                    validated_data = model.model_validate(json.loads(str(value)))
+                    results.append(validated_data)
+                except json.JSONDecodeError:
+                    logger.exception("JSON Decode error.", extra={"key": key})
+                    results.append(None)
+                except ValidationError:
+                    logger.exception(
+                        "Validation error.",
+                        extra={"key": key, "model": model.__name__},
+                    )
+                    results.append(None)
+
+            return results
+        except redis.RedisError:
+            logger.exception("Error getting multiple Redis keys.")
+            return [None] * len(keys)
+
+    def delete(self, key: str) -> bool:
+        if self._client is None:
+            logger.error("Redis client not initialized.")
+            return False
+
+        try:
+            result = self._client.delete(key)
+            return bool(result)
+        except redis.RedisError:
+            logger.exception("Error deleting Redis key.", extra={"key": key})
+            return False
