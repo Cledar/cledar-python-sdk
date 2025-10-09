@@ -11,20 +11,20 @@ import fsspec
 
 from .exceptions import RequiredBucketNotFoundException
 
-logger = logging.getLogger("s3_service")
+logger = logging.getLogger("object_storage_service")
 
 
 @dataclass
-class S3ServiceConfig:
+class ObjectStorageServiceConfig:
     s3_endpoint_url: str
     s3_access_key: str
     s3_secret_key: str
 
 
-class S3Service:
+class ObjectStorageService:
     client: Any = None
 
-    def __init__(self, config: S3ServiceConfig) -> None:
+    def __init__(self, config: ObjectStorageServiceConfig) -> None:
         self.client = fsspec.filesystem(
             "s3",
             key=config.s3_access_key,
@@ -116,13 +116,13 @@ class S3Service:
             except (OSError, socket.error) as exception:
                 if attempt == max_tries - 1:
                     logger.exception(
-                        "Failed to read file from S3 after %d retries",
+                        "Failed to read file after %d retries",
                         max_tries,
                         extra={"bucket": bucket, "key": key},
                     )
                     raise exception
                 logger.warning(
-                    "Failed to read file from S3, retrying...",
+                    "Failed to read file, retrying...",
                     extra={"bucket": bucket, "key": key},
                 )
         raise NotImplementedError("This should never be reached")
@@ -135,24 +135,32 @@ class S3Service:
         destination_path: str = None,
     ) -> None:
         try:
-            logger.debug(
-                "Uploading file from filesystem",
-                extra={"bucket": bucket, "key": key, "file_path": file_path},
-            )
             if destination_path:
+                logger.debug(
+                    "Uploading file from filesystem to local filesystem",
+                    extra={"destination_path": destination_path},
+                )
                 self.client.put(lpath=file_path, rpath=destination_path)
+                logger.debug(
+                    "Uploaded file from filesystem to local filesystem",
+                    extra={"destination_path": destination_path},
+                )
             elif bucket and key:
+                logger.debug(
+                    "Uploading file from filesystem to S3",
+                    extra={"bucket": bucket, "key": key},
+                )
                 self.client.put(lpath=file_path, rpath=f"s3://{bucket}/{key}")
                 logger.debug(
-                    "Uploaded file from filesystem",
-                    extra={"bucket": bucket, "key": key, "file_path": file_path},
+                    "Uploaded file from filesystem to S3",
+                    extra={"bucket": bucket, "key": key},
                 )
             else:
                 raise ValueError(
                     "Either destination_path or bucket and key must be provided"
                 )
         except Exception as exception:  # pylint: disable=broad-exception-caught
-            logger.exception("Failed to upload file to S3")
+            logger.exception("Failed to upload file")
             raise exception
 
     def verify_and_upload_test_file(self, bucket: str, throw: bool = False) -> None:

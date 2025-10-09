@@ -3,24 +3,24 @@
 from unittest.mock import MagicMock, patch
 import pytest
 from faker import Faker
-from s3_service.models.upload_status import UploadStatus  # type: ignore[import-not-found]
-from s3_service.s3 import S3ServiceConfig  # type: ignore[import-not-found]
-from s3_service.models.upload_chunk_dto import UploadChunkDto  # type: ignore[import-not-found]
-from s3_service.s3_multipart import S3MultipartService  # type: ignore[import-not-found]
+from storage_service.models.upload_status import UploadStatus  # type: ignore[import-not-found]
+from storage_service.object_storage import ObjectStorageServiceConfig  # type: ignore[import-not-found]
+from storage_service.models.upload_chunk_dto import UploadChunkDto  # type: ignore[import-not-found]
+from storage_service.object_storage_multipart import ObjectStorageMultipartService  # type: ignore[import-not-found]
 
 fake = Faker()
 
 
-@pytest.fixture(name="s3_multipart_service")
+@pytest.fixture(name="object_storage_multipart_service")
 @patch("fsspec.filesystem")
-def fixture_s3_service(
-    fsspec_client: MagicMock, s3_config: S3ServiceConfig
-) -> S3MultipartService:
+def fixture_object_storage_service(
+    fsspec_client: MagicMock, object_storage_config: ObjectStorageServiceConfig
+) -> ObjectStorageMultipartService:
     fsspec_client.return_value = MagicMock()
-    return S3MultipartService(s3_config)
+    return ObjectStorageMultipartService(object_storage_config)
 
 
-def test_upload_file_chunk(s3_multipart_service: S3MultipartService) -> None:
+def test_upload_file_chunk(object_storage_multipart_service: ObjectStorageMultipartService) -> None:
     # Arrange
     session_id = str(fake.uuid4())
     dto = UploadChunkDto(
@@ -34,7 +34,7 @@ def test_upload_file_chunk(s3_multipart_service: S3MultipartService) -> None:
 
     # Act: Uploading first chunk
     dto.chunk_no = 1
-    result = s3_multipart_service.upload_file_chunk(dto)
+    result = object_storage_multipart_service.upload_file_chunk(dto)
 
     # Assert: First chunk upload
     assert result.status == UploadStatus.CHUNK_RECEIVED
@@ -43,7 +43,7 @@ def test_upload_file_chunk(s3_multipart_service: S3MultipartService) -> None:
 
     # Act: Uploading the last chunk
     dto.chunk_no = 2
-    result = s3_multipart_service.upload_file_chunk(dto)
+    result = object_storage_multipart_service.upload_file_chunk(dto)
 
     # Assert: Upload completion
     assert result.status == UploadStatus.COMPLETE

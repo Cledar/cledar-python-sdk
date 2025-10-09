@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from threading import RLock
 
-from .s3_part import S3Part  # pylint: disable=relative-beyond-top-level
+from .object_storage_part import ObjectStoragePart  # pylint: disable=relative-beyond-top-level
 
 
 @dataclass
@@ -10,7 +10,7 @@ class MultipartSessionDto:
     gen_filename: str
     file_name: str
     bucket: str
-    parts: list[S3Part] = field(default_factory=list)
+    parts: list[ObjectStoragePart] = field(default_factory=list)
     upload_id: str = ""
     total_chunks: int = 0
     uploaded_chunk_numbers: set[int] = field(default_factory=set)
