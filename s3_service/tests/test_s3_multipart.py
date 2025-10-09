@@ -12,11 +12,11 @@ fake = Faker()
 
 
 @pytest.fixture(name="s3_multipart_service")
-@patch("s3fs.S3FileSystem")
+@patch("fsspec.filesystem")
 def fixture_s3_service(
-    fs_ctor: MagicMock, s3_config: S3ServiceConfig
+    fsspec_client: MagicMock, s3_config: S3ServiceConfig
 ) -> S3MultipartService:
-    fs_ctor.return_value = MagicMock()
+    fsspec_client.return_value = MagicMock()
     return S3MultipartService(s3_config)
 
 

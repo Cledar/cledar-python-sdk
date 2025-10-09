@@ -13,21 +13,26 @@ fake = Faker()
 
 
 @patch("fsspec.filesystem")
-def test_init(fs_ctor: MagicMock, s3_config: S3ServiceConfig) -> None:
+def test_init(fsspec_client: MagicMock, s3_config: S3ServiceConfig) -> None:
     S3Service(s3_config)
 
-    fs_ctor.assert_called_once_with(
+    fsspec_client.assert_any_call(
         "s3",
         key=s3_config.s3_access_key,
         secret=s3_config.s3_secret_key,
         client_kwargs={"endpoint_url": s3_config.s3_endpoint_url},
     )
+    fsspec_client.assert_any_call(
+        "file",
+    )
 
 
 @pytest.fixture(name="s3_service")
 @patch("fsspec.filesystem")
-def fixture_s3_service(fs_ctor: MagicMock, s3_config: S3ServiceConfig) -> S3Service:
-    fs_ctor.return_value = MagicMock()
+def fixture_s3_service(
+    fsspec_client: MagicMock, s3_config: S3ServiceConfig
+) -> S3Service:
+    fsspec_client.return_value = MagicMock()
     return S3Service(s3_config)
 
 
@@ -93,7 +98,9 @@ def test_upload_file_exception(s3_service: S3Service) -> None:
     with pytest.raises(Exception):
         s3_service.upload_file(file_path=file_path, bucket=bucket_name, key=key)
 
-    s3_service.client.put.assert_called_once_with(file_path, f"{bucket_name}/{key}")
+    s3_service.client.put.assert_called_once_with(
+        lpath=file_path, rpath=f"s3://{bucket_name}/{key}"
+    )
 
 
 def test_read_file_exception(s3_service: S3Service) -> None:

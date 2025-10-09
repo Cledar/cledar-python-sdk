@@ -112,9 +112,7 @@ class S3Service:
                     )
                     return content
                 else:
-                    raise ValueError(
-                        "Either path or bucket and key must be provided"
-                    )
+                    raise ValueError("Either path or bucket and key must be provided")
             except (OSError, socket.error) as exception:
                 if attempt == max_tries - 1:
                     logger.exception(
@@ -145,10 +143,10 @@ class S3Service:
                 self.client.put(lpath=file_path, rpath=destination_path)
             elif bucket and key:
                 self.client.put(lpath=file_path, rpath=f"s3://{bucket}/{key}")
-            logger.debug(
-                "Uploaded file from filesystem",
-                extra={"bucket": bucket, "key": key, "file_path": file_path},
-            )
+                logger.debug(
+                    "Uploaded file from filesystem",
+                    extra={"bucket": bucket, "key": key, "file_path": file_path},
+                )
             else:
                 raise ValueError(
                     "Either destination_path or bucket and key must be provided"
