@@ -1,3 +1,4 @@
+import io
 import logging
 from typing import Any
 from uuid import uuid4
@@ -79,7 +80,7 @@ class S3MultipartService(S3Service):
         return session
 
     def _init_upload_session(self, dto: UploadChunkDto) -> None:
-        """Initialize a multipart upload for a file."""
+        """Initialize an in-memory buffered multipart upload for a file."""
         try:
             gen_filename = f"{uuid4().hex}.sav"
             logger.debug(
@@ -87,18 +88,17 @@ class S3MultipartService(S3Service):
                 extra={"file_name": dto.file_name, "bucket": dto.bucket},
             )
 
-            response = self.client.create_multipart_upload(
-                Bucket=dto.bucket, Key=gen_filename
-            )
-
             session = MultipartSessionDto(
                 gen_filename=gen_filename,
                 file_name=dto.file_name,
                 bucket=dto.bucket,
                 parts=[],
-                upload_id=response["UploadId"],
+                upload_id="",
                 total_chunks=dto.total_chunks,
             )
+
+            # type: ignore[attr-defined] - attach chunk storage lazily
+            session.chunks = {}
 
             self.multipart_sessions[dto.session_id] = session
 
@@ -119,34 +119,25 @@ class S3MultipartService(S3Service):
     def _upload_part(
         self, session: MultipartSessionDto, part_number: int, body: Any
     ) -> S3Part:
-        """Upload a single part to S3."""
+        """Buffer a single chunk in memory (no immediate S3 call)."""
 
         logger.debug(
             "Uploading chunk part",
             extra={"file_name": session.file_name, "part_number": part_number},
         )
-        response = self.client.upload_part(
-            Bucket=session.bucket,
-            Key=session.gen_filename,
-            PartNumber=part_number,
-            UploadId=session.upload_id,
-            Body=body,
-        )
-        logger.debug(
-            "Uploaded chunk part",
-            extra={
-                "key": session.file_name,
-                "part_number": part_number,
-                "upload_id": session.upload_id,
-            },
+
+        # type: ignore[attr-defined]
+        session.chunks[part_number] = (
+            body if isinstance(body, (bytes, bytearray)) else bytes(body)
         )
 
-        return S3Part(PartNumber=part_number, ETag=response["ETag"])
+        # Return a dummy ETag placeholder to preserve interface
+        return S3Part(PartNumber=part_number, ETag=f"chunk-{part_number}")
 
     def _complete_chunk_upload(
         self, bucket: str, key: str, upload_id: str, session_id: str
     ) -> None:
-        """Complete multipart upload by assembling the uploaded parts."""
+        """Assemble buffered chunks and upload as a single object via filesystem."""
         try:
             session = self.multipart_sessions[session_id]
             logger.debug(
@@ -155,17 +146,16 @@ class S3MultipartService(S3Service):
             )
 
             with session.lock:
-                uploaded_parts = sorted(session.parts, key=lambda p: p["PartNumber"])
-                parts_info = [
-                    {"PartNumber": part["PartNumber"], "ETag": part["ETag"]}
-                    for part in uploaded_parts
-                ]
-                self.client.complete_multipart_upload(
-                    Bucket=bucket,
-                    Key=key,
-                    UploadId=upload_id,
-                    MultipartUpload={"Parts": parts_info},
-                )
+                # type: ignore[attr-defined]
+                ordered_numbers = sorted(session.chunks.keys())
+                merged = io.BytesIO()
+                for pn in ordered_numbers:
+                    # type: ignore[attr-defined]
+                    merged.write(session.chunks[pn])
+                merged.seek(0)
+
+            # Use base class helper to upload
+            self.upload_buffer(buffer=merged, bucket=bucket, key=key)
 
             logger.debug(
                 "Upload completed in chunks",
@@ -189,11 +179,6 @@ class S3MultipartService(S3Service):
                 session = self.multipart_sessions.get(session_id)
 
             if session:
-                self.client.abort_multipart_upload(
-                    Bucket=session.bucket,
-                    Key=session.gen_filename,
-                    UploadId=session.upload_id,
-                )
                 logger.info("Upload aborted", extra={"session_id": session_id})
         except Exception as exception:
             logger.exception("Failed to abort upload", extra={"session_id": session_id})

@@ -6,10 +6,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 from uuid import uuid4
+import fsspec
 
-import boto3
-import botocore.exceptions
-from botocore.response import StreamingBody
 
 from .exceptions import RequiredBucketNotFoundException
 
@@ -27,59 +25,101 @@ class S3Service:
     client: Any = None
 
     def __init__(self, config: S3ServiceConfig) -> None:
-        self.client = boto3.client(
+        self.client = fsspec.filesystem(
             "s3",
-            endpoint_url=config.s3_endpoint_url,
-            aws_access_key_id=config.s3_access_key,
-            aws_secret_access_key=config.s3_secret_key,
+            key=config.s3_access_key,
+            secret=config.s3_secret_key,
+            client_kwargs={"endpoint_url": config.s3_endpoint_url},
         )
-        logger.info("Initiated client", extra={"endpoint_url": config.s3_endpoint_url})
+        logger.info(
+            "Initiated filesystem", extra={"endpoint_url": config.s3_endpoint_url}
+        )
+        self.local_client = fsspec.filesystem("file")
 
     def is_alive(self) -> bool:
         try:
-            self.client.list_buckets()
+            self.client.ls(path="")
             return True
         except Exception:  # pylint: disable=broad-exception-caught
             return False
 
     def has_bucket(self, bucket: str, throw: bool = False) -> bool:
         try:
-            self.client.head_bucket(Bucket=bucket)
+            self.client.ls(path=bucket)
             return True
-        except botocore.exceptions.ClientError as exception:
+        except Exception as exception:  # pylint: disable=broad-exception-caught
             if throw:
                 logger.exception("Bucket not found", extra={"bucket": bucket})
                 raise RequiredBucketNotFoundException from exception
             return False
 
-    def upload_buffer(self, buffer: io.BytesIO, bucket: str, key: str) -> None:
+    def upload_buffer(
+        self,
+        buffer: io.BytesIO,
+        bucket: str = None,
+        key: str = None,
+        destination_path: str = None,
+    ) -> None:
         try:
-            logger.debug(
-                "Uploading file from buffer", extra={"bucket": bucket, "key": key}
-            )
-            self.client.upload_fileobj(Fileobj=buffer, Bucket=bucket, Key=key)
-            logger.debug(
-                "Uploaded file from buffer", extra={"bucket": bucket, "key": key}
-            )
-        except Exception as exception:
+            if destination_path:
+                logger.debug(
+                    "Uploading file from buffer",
+                    extra={"destination_path": destination_path},
+                )
+                buffer.seek(0)
+                with self.local_client.open(path=destination_path, mode="wb") as fobj:
+                    fobj.write(buffer.getbuffer())
+            elif bucket and key:
+                buffer.seek(0)
+                with self.client.open(path=f"s3://{bucket}/{key}", mode="wb") as fobj:
+                    fobj.write(buffer.getbuffer())
+                logger.debug(
+                    "Uploaded file from buffer", extra={"bucket": bucket, "key": key}
+                )
+            else:
+                raise ValueError(
+                    "Either destination_path or bucket and key must be provided"
+                )
+        except Exception as exception:  # pylint: disable=broad-exception-caught
             logger.exception("Failed to upload buffer to S3")
             raise exception
 
-    def read_file(self, bucket: str, key: str, max_tries: int = 3) -> bytes:
-        logger.debug("Reading file from S3...", extra={"bucket": bucket, "key": key})
+    def read_file(
+        self, bucket: str = None, key: str = None, path: str = None, max_tries: int = 3
+    ) -> bytes:
         for attempt in range(max_tries):
             try:
-                response: dict[str, Any] = self.client.get_object(
-                    Bucket=bucket, Key=key
-                )
-                content_body: StreamingBody = response["Body"]
-                content: bytes = content_body.read()
-                logger.debug("File read from S3", extra={"bucket": bucket, "key": key})
-                return content
-            except (botocore.exceptions.IncompleteReadError, socket.error) as exception:
+                if path:
+                    logger.debug(
+                        "Reading file from local filesystem", extra={"path": path}
+                    )
+                    with self.local_client.open(path=path, mode="rb") as fobj:
+                        content: bytes = fobj.read()
+                    logger.debug(
+                        "File read from local filesystem", extra={"path": path}
+                    )
+                    return content
+                if bucket and key:
+                    logger.debug(
+                        "Reading file from S3", extra={"bucket": bucket, "key": key}
+                    )
+                    with self.client.open(
+                        path=f"s3://{bucket}/{key}", mode="rb"
+                    ) as fobj:
+                        content: bytes = fobj.read()
+                    logger.debug(
+                        "File read from S3", extra={"bucket": bucket, "key": key}
+                    )
+                    return content
+                else:
+                    raise ValueError(
+                        "Either path or bucket and key must be provided"
+                    )
+            except (OSError, socket.error) as exception:
                 if attempt == max_tries - 1:
                     logger.exception(
-                        f"Failed to read file from S3 after {max_tries} retries",
+                        "Failed to read file from S3 after %d retries",
+                        max_tries,
                         extra={"bucket": bucket, "key": key},
                     )
                     raise exception
@@ -89,25 +129,41 @@ class S3Service:
                 )
         raise NotImplementedError("This should never be reached")
 
-    def upload_file(self, file_path: str, bucket: str, key: str) -> None:
+    def upload_file(
+        self,
+        file_path: str,
+        bucket: str = None,
+        key: str = None,
+        destination_path: str = None,
+    ) -> None:
         try:
             logger.debug(
                 "Uploading file from filesystem",
                 extra={"bucket": bucket, "key": key, "file_path": file_path},
             )
-            self.client.upload_file(Filename=file_path, Bucket=bucket, Key=key)
+            if destination_path:
+                self.client.put(lpath=file_path, rpath=destination_path)
+            elif bucket and key:
+                self.client.put(lpath=file_path, rpath=f"s3://{bucket}/{key}")
             logger.debug(
                 "Uploaded file from filesystem",
                 extra={"bucket": bucket, "key": key, "file_path": file_path},
             )
-        except Exception as exception:
+            else:
+                raise ValueError(
+                    "Either destination_path or bucket and key must be provided"
+                )
+        except Exception as exception:  # pylint: disable=broad-exception-caught
             logger.exception("Failed to upload file to S3")
             raise exception
 
     def verify_and_upload_test_file(self, bucket: str, throw: bool = False) -> None:
         logger.info("Starting verification and upload of test file.")
-        buckets = self.client.list_buckets().get("Buckets", [])
-        logger.info(f"Number of buckets: {len(buckets)}")
+        try:
+            buckets = self.client.ls(path="")
+        except Exception:  # pylint: disable=broad-exception-caught
+            buckets = []
+        logger.info("Number of buckets: %d", len(buckets))
         buffer = io.BytesIO()
         try:
             buffer.write(f"test contents {datetime.now()}".encode("utf-8"))
@@ -121,7 +177,7 @@ class S3Service:
                 key=test_key,
             )
             self.read_file(bucket=bucket, key=test_key)
-        except Exception as exception:
+        except Exception as exception:  # pylint: disable=broad-exception-caught
             logger.error(
                 "An error occurred during the verification and upload process",
                 extra={
