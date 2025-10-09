@@ -3,6 +3,6 @@ from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
-class S3Part(TypedDict):
+class ObjectStoragePart(TypedDict):
     ETag: str
     PartNumber: int

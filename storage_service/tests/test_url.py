@@ -1,5 +1,5 @@
 import pytest
-from s3_service.url import IncorrectSchemaException, S3ItemMetadata, parse_url
+from storage_service.url import IncorrectSchemaException, S3ItemMetadata, parse_url
 
 
 def test_ok() -> None:
