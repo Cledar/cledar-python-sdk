@@ -61,12 +61,4 @@ warn_required_dynamic_aliases = true
 module = ["confluent_kafka", ".kafka_service.schemas", ".output", ".kafka_service.kafka_producer" ] # https://github.com/confluentinc/confluent-kafka-python/issues/1408
 ignore_missing_imports = true
 
-[tool.poetry-dynamic-versioning]
-enable = true
-vcs = "git"
-style = "semver"
-
-[build-system]
-requires = ["poetry-core>=1.0.0", "poetry-dynamic-versioning>=1.0.0,<2.0.0"]
-build-backend = "poetry_dynamic_versioning.backend"
 
