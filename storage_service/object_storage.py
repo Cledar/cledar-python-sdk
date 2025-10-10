@@ -128,7 +128,7 @@ class ObjectStorageService:
 
     def upload_file(
         self,
-        file_path: str = None,
+        file_path: str,
         bucket: str = None,
         key: str = None,
         destination_path: str = None,
