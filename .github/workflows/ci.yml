@@ -1,0 +1,111 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: main
+    tags:
+      - '*'
+  pull_request:
+
+env:
+  SONAR_USER_HOME: .sonar
+  UV_CACHE_DIR: .cache/uv
+  PIP_CACHE_DIR: .cache/pip
+  SHIP_ASAP_REGEX: DANGEROUS_SHIP_ASAP
+
+jobs:
+
+  # -------------------------------------------------------
+  # Versioning (semantic-release)
+  # -------------------------------------------------------
+  version:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Semantic Release
+        id: semantic
+        uses: cycjimmy/semantic-release-action@v4
+        with:
+          semantic_version: latest
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    outputs:
+      version: ${{ steps.semantic.outputs.new_release_version }}
+
+  # -------------------------------------------------------
+  # Lint: Black
+  # -------------------------------------------------------
+  black:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12.7"
+      - name: Install Black
+        run: pip install black
+      - name: Run Black
+        run: black --check --diff --color .
+
+  # -------------------------------------------------------
+  # Lint: Pylint
+  # -------------------------------------------------------
+  pylint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12.7"
+      - name: Install pylint
+        run: pip install pylint
+      - name: Run pylint
+        run: pylint $(git ls-files '*.py')
+
+  # -------------------------------------------------------
+  # Lint: Mypy (using uv)
+  # -------------------------------------------------------
+  mypy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12.7"
+      - name: Install uv and dependencies
+        run: |
+          pip install uv
+          uv sync --no-dev --frozen
+          uv add mypy==1.11.2
+      - name: Run Mypy
+        run: uv run mypy .
+
+  # -------------------------------------------------------
+  # Test (using uv)
+  # -------------------------------------------------------
+  test:
+    runs-on: ubuntu-latest
+    needs: [black, pylint, mypy]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12.7"
+      - name: Install uv and dependencies
+        run: |
+          pip install uv
+          uv sync --frozen
+      - name: Run tests
+        run: |
+          uv run coverage run -m pytest
+          uv run coverage xml
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.xml
