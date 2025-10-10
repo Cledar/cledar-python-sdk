@@ -111,8 +111,7 @@ class ObjectStorageService:
                         "File read from S3", extra={"bucket": bucket, "key": key}
                     )
                     return content
-                else:
-                    raise ValueError("Either path or bucket and key must be provided")
+                raise ValueError("Either path or bucket and key must be provided")
             except (OSError, socket.error) as exception:
                 if attempt == max_tries - 1:
                     logger.exception(
@@ -129,7 +128,7 @@ class ObjectStorageService:
 
     def upload_file(
         self,
-        file_path: str,
+        file_path: str = None,
         bucket: str = None,
         key: str = None,
         destination_path: str = None,
@@ -140,7 +139,7 @@ class ObjectStorageService:
                     "Uploading file from filesystem to local filesystem",
                     extra={"destination_path": destination_path},
                 )
-                self.client.put(lpath=file_path, rpath=destination_path)
+                self.local_client.put(lpath=file_path, rpath=destination_path)
                 logger.debug(
                     "Uploaded file from filesystem to local filesystem",
                     extra={"destination_path": destination_path},
