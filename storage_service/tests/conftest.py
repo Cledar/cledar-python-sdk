@@ -13,4 +13,6 @@ def object_storage_config() -> ObjectStorageServiceConfig:
         s3_endpoint_url=fake.url(),
         s3_secret_key=fake.password(),
         s3_max_concurrency=10,
+        azure_account_name=fake.word(),
+        azure_account_key=fake.password(),
     )
