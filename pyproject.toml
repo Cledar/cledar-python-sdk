@@ -1,5 +1,5 @@
 [project]
-name = "common-services"
+name = "cledar-python-sdk"
 version = "0.0.0"
 description = "Cledar Python SDK"
 authors = [{ name = "Krystian Krol" }]
