@@ -21,6 +21,11 @@ from .exceptions import (
     UploadFileError,
 )
 
+S3_PATH_PREFIX = "s3://"
+ABFS_PATH_PREFIX = "abfs://"
+ABFSS_PATH_PREFIX = "abfss://"
+LOCAL_PATH_PREFIX = "file://"
+
 logger = logging.getLogger("object_storage_service")
 
 
@@ -65,14 +70,14 @@ class ObjectStorageService:
     def _is_s3_path(path: str | None) -> bool:
         if path is None:
             return False
-        return path.lower().startswith("s3://")
+        return path.lower().startswith(S3_PATH_PREFIX)
 
     @staticmethod
     def _is_abfs_path(path: str | None) -> bool:
         if path is None:
             return False
         lower = path.lower()
-        return lower.startswith(("abfs://", "abfss://"))
+        return lower.startswith((ABFS_PATH_PREFIX, ABFSS_PATH_PREFIX))
 
     def is_alive(self) -> bool:
         try:
@@ -85,7 +90,9 @@ class ObjectStorageService:
         self, buffer: io.BytesIO, bucket: str, key: str
     ) -> None:
         buffer.seek(0)
-        with self.client.open(path=f"s3://{bucket}/{key}", mode="wb") as fobj:
+        with self.client.open(
+            path=f"{S3_PATH_PREFIX}{bucket}/{key}", mode="wb"
+        ) as fobj:
             fobj.write(buffer.getbuffer())
 
     def _write_buffer_to_s3_path(
@@ -110,7 +117,9 @@ class ObjectStorageService:
             fobj.write(buffer.getbuffer())
 
     def _read_from_s3_key(self, bucket: str, key: str) -> bytes:
-        with self.client.open(path=f"s3://{bucket}/{key}", mode="rb") as fobj:
+        with self.client.open(
+            path=f"{S3_PATH_PREFIX}{bucket}/{key}", mode="rb"
+        ) as fobj:
             data: bytes = fobj.read()
             return data
 
@@ -143,8 +152,8 @@ class ObjectStorageService:
     def _normalize_s3_keys(self, bucket: str, objects: list[str]) -> list[str]:
         keys: list[str] = []
         for obj in objects:
-            if obj.startswith(f"s3://{bucket}/"):
-                keys.append(obj.replace(f"s3://{bucket}/", ""))
+            if obj.startswith(f"{S3_PATH_PREFIX}{bucket}/"):
+                keys.append(obj.replace(f"{S3_PATH_PREFIX}{bucket}/", ""))
             elif obj.startswith(f"{bucket}/"):
                 keys.append(obj.replace(f"{bucket}/", ""))
             else:
@@ -203,7 +212,7 @@ class ObjectStorageService:
         self, bucket: str | None, key: str | None, path: str | None
     ) -> tuple[str, str]:
         if bucket and key:
-            return "s3", f"s3://{bucket}/{key}"
+            return "s3", f"{S3_PATH_PREFIX}{bucket}/{key}"
         if path and self._is_s3_path(path):
             return "s3", path
         if path and self._is_abfs_path(path):
@@ -216,7 +225,7 @@ class ObjectStorageService:
         self, bucket: str | None, key: str | None, destination_path: str | None
     ) -> tuple[str, str]:
         if bucket and key:
-            return "s3", f"s3://{bucket}/{key}"
+            return "s3", f"{S3_PATH_PREFIX}{bucket}/{key}"
         if destination_path and self._is_s3_path(destination_path):
             return "s3", destination_path
         if destination_path and self._is_abfs_path(destination_path):
@@ -432,7 +441,11 @@ class ObjectStorageService:
                 )
                 return objects
             if bucket:
-                s3_path = f"s3://{bucket}/{prefix}" if prefix else f"s3://{bucket}/"
+                s3_path = (
+                    f"{S3_PATH_PREFIX}{bucket}/{prefix}"
+                    if prefix
+                    else f"{S3_PATH_PREFIX}{bucket}/"
+                )
                 logger.debug(
                     "Listing objects from S3",
                     extra={"bucket": bucket, "prefix": prefix, "recursive": recursive},
@@ -478,7 +491,7 @@ class ObjectStorageService:
         """
         try:
             if bucket and key:
-                s3_path = f"s3://{bucket}/{key}"
+                s3_path = f"{S3_PATH_PREFIX}{bucket}/{key}"
                 logger.debug(
                     "Deleting file from S3", extra={"bucket": bucket, "key": key}
                 )
@@ -533,7 +546,7 @@ class ObjectStorageService:
         """
         try:
             if bucket and key:
-                s3_path = f"s3://{bucket}/{key}"
+                s3_path = f"{S3_PATH_PREFIX}{bucket}/{key}"
                 exists = self.client.exists(s3_path)
                 logger.debug(
                     "Checked file existence in S3",
@@ -730,7 +743,7 @@ class ObjectStorageService:
         """
         try:
             if bucket and key:
-                s3_path = f"s3://{bucket}/{key}"
+                s3_path = f"{S3_PATH_PREFIX}{bucket}/{key}"
                 logger.debug(
                     "Getting file info from S3", extra={"bucket": bucket, "key": key}
                 )
@@ -801,7 +814,7 @@ class ObjectStorageService:
         src_is_s3 = False
         src_is_abfs = False
         if source_bucket and source_key:
-            src: str = f"s3://{source_bucket}/{source_key}"
+            src: str = f"{S3_PATH_PREFIX}{source_bucket}/{source_key}"
             src_is_s3 = True
         elif self._is_s3_path(source_path):
             src = cast(str, source_path)
@@ -819,7 +832,7 @@ class ObjectStorageService:
         dst_is_s3 = False
         dst_is_abfs = False
         if dest_bucket and dest_key:
-            dst: str = f"s3://{dest_bucket}/{dest_key}"
+            dst: str = f"{S3_PATH_PREFIX}{dest_bucket}/{dest_key}"
             dst_is_s3 = True
         elif self._is_s3_path(dest_path):
             dst = cast(str, dest_path)
