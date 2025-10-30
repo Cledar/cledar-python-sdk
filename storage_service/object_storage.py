@@ -316,7 +316,6 @@ class ObjectStorageService:
         path: str | None = None,
         max_tries: int = 3,
     ) -> bytes:
-
         transfer_path: TransferPath = self._resolve_source_backend_and_path(
             bucket=bucket, key=key, path=path
         )
