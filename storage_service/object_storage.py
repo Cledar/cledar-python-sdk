@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Any, cast
 
 import fsspec
-from fsspec.exceptions import FSTimeoutError  # type: ignore[import-untyped]
+from fsspec.exceptions import FSTimeoutError
 
 from .exceptions import (
     CheckFileExistenceError,
@@ -72,7 +72,7 @@ class ObjectStorageService:
         if path is None:
             return False
         lower = path.lower()
-        return lower.startswith("abfs://") or lower.startswith("abfss://")
+        return lower.startswith(("abfs://", "abfss://"))
 
     def is_alive(self) -> bool:
         try:
@@ -80,6 +80,166 @@ class ObjectStorageService:
             return True
         except (OSError, PermissionError, TimeoutError, FSTimeoutError):
             return False
+
+    def _write_buffer_to_s3_key(
+        self, buffer: io.BytesIO, bucket: str, key: str
+    ) -> None:
+        buffer.seek(0)
+        with self.client.open(path=f"s3://{bucket}/{key}", mode="wb") as fobj:
+            fobj.write(buffer.getbuffer())
+
+    def _write_buffer_to_s3_path(
+        self, buffer: io.BytesIO, destination_path: str
+    ) -> None:
+        buffer.seek(0)
+        with self.client.open(path=destination_path, mode="wb") as fobj:
+            fobj.write(buffer.getbuffer())
+
+    def _write_buffer_to_abfs_path(
+        self, buffer: io.BytesIO, destination_path: str
+    ) -> None:
+        buffer.seek(0)
+        with self.azure_client.open(path=destination_path, mode="wb") as fobj:
+            fobj.write(buffer.getbuffer())
+
+    def _write_buffer_to_local_path(
+        self, buffer: io.BytesIO, destination_path: str
+    ) -> None:
+        buffer.seek(0)
+        with self.local_client.open(path=destination_path, mode="wb") as fobj:
+            fobj.write(buffer.getbuffer())
+
+    def _read_from_s3_key(self, bucket: str, key: str) -> bytes:
+        with self.client.open(path=f"s3://{bucket}/{key}", mode="rb") as fobj:
+            data: bytes = fobj.read()
+            return data
+
+    def _read_from_s3_path(self, path: str) -> bytes:
+        with self.client.open(path=path, mode="rb") as fobj:
+            data: bytes = fobj.read()
+            return data
+
+    def _read_from_abfs_path(self, path: str) -> bytes:
+        with self.azure_client.open(path=path, mode="rb") as fobj:
+            data: bytes = fobj.read()
+            return data
+
+    def _read_from_local_path(self, path: str) -> bytes:
+        with self.local_client.open(path=path, mode="rb") as fobj:
+            data: bytes = fobj.read()
+            return data
+
+    def _put_file(self, fs: Any, lpath: str, rpath: str) -> None:
+        fs.put(lpath=lpath, rpath=rpath)
+
+    def _get_file(self, fs: Any, src: str, dst: str) -> None:
+        fs.get(src, dst)
+
+    def _list_via_find_or_ls(self, fs: Any, path: str, recursive: bool) -> list[str]:
+        if recursive:
+            return cast(list[str], fs.find(path))
+        return cast(list[str], fs.ls(path, detail=False))
+
+    def _normalize_s3_keys(self, bucket: str, objects: list[str]) -> list[str]:
+        keys: list[str] = []
+        for obj in objects:
+            if obj.startswith(f"s3://{bucket}/"):
+                keys.append(obj.replace(f"s3://{bucket}/", ""))
+            elif obj.startswith(f"{bucket}/"):
+                keys.append(obj.replace(f"{bucket}/", ""))
+            else:
+                keys.append(obj)
+        return keys
+
+    def _size_from_info(self, info: dict[str, Any]) -> int:
+        return int(info.get("size", 0))
+
+    def _copy_with_backend(self, backend: str, src: str, dst: str) -> None:
+        if backend == "s3":
+            self.client.copy(src, dst)
+            return
+        if backend == "abfs":
+            self.azure_client.copy(src, dst)
+            return
+        if backend == "local":
+            self.local_client.copy(src, dst)
+            return
+        with (
+            fsspec.open(src, mode="rb") as src_f,
+            fsspec.open(dst, mode="wb") as dst_f,
+        ):
+            dst_f.write(src_f.read())
+
+    def _move_with_backend(self, backend: str, src: str, dst: str) -> None:
+        if backend == "s3":
+            self.client.move(src, dst)
+            return
+        if backend == "abfs":
+            self.azure_client.move(src, dst)
+            return
+        if backend == "local":
+            self.local_client.move(src, dst)
+            return
+        with (
+            fsspec.open(src, mode="rb") as src_f,
+            fsspec.open(dst, mode="wb") as dst_f,
+        ):
+            dst_f.write(src_f.read())
+        if self._is_s3_path(src):
+            self.client.rm(src)
+        elif self._is_abfs_path(src):
+            self.azure_client.rm(src)
+        else:
+            self.local_client.rm(src)
+
+    def _get_fs_for_backend(self, backend: str) -> Any:
+        if backend == "s3":
+            return self.client
+        if backend == "abfs":
+            return self.azure_client
+        return self.local_client
+
+    def _resolve_source_backend_and_path(
+        self, bucket: str | None, key: str | None, path: str | None
+    ) -> tuple[str, str]:
+        if bucket and key:
+            return "s3", f"s3://{bucket}/{key}"
+        if path and self._is_s3_path(path):
+            return "s3", path
+        if path and self._is_abfs_path(path):
+            return "abfs", path
+        if path:
+            return "local", path
+        raise ValueError("Either path or bucket and key must be provided")
+
+    def _resolve_dest_backend_and_path(
+        self, bucket: str | None, key: str | None, destination_path: str | None
+    ) -> tuple[str, str]:
+        if bucket and key:
+            return "s3", f"s3://{bucket}/{key}"
+        if destination_path and self._is_s3_path(destination_path):
+            return "s3", destination_path
+        if destination_path and self._is_abfs_path(destination_path):
+            return "abfs", destination_path
+        if destination_path:
+            return "local", destination_path
+        raise ValueError("Either destination_path or bucket and key must be provided")
+
+    def _resolve_path_backend(self, path: str | None) -> tuple[str, str]:
+        if path and self._is_s3_path(path):
+            return "s3", path
+        if path and self._is_abfs_path(path):
+            return "abfs", path
+        if path:
+            return "local", path
+        raise ValueError("Path must be provided")
+
+    def _read_from_backend_path(self, backend: str, src_path: str) -> bytes:
+        if backend == "s3":
+            return self._read_from_s3_path(src_path)
+        if backend == "abfs":
+            return self._read_from_abfs_path(src_path)
+        return self._read_from_local_path(src_path)
 
     def has_bucket(self, bucket: str, throw: bool = False) -> bool:
         try:
@@ -106,38 +266,34 @@ class ObjectStorageService:
     ) -> None:
         try:
             if bucket and key:
-                buffer.seek(0)
-                with self.client.open(path=f"s3://{bucket}/{key}", mode="wb") as fobj:
-                    fobj.write(buffer.getbuffer())
+                self._write_buffer_to_s3_key(buffer=buffer, bucket=bucket, key=key)
                 logger.debug(
                     "Uploaded file from buffer", extra={"bucket": bucket, "key": key}
                 )
-            elif self._is_s3_path(destination_path):
+            elif destination_path and self._is_s3_path(destination_path):
                 logger.debug(
                     "Uploading file from buffer to S3 via path",
                     extra={"destination_path": destination_path},
                 )
-                buffer.seek(0)
-                with self.client.open(path=destination_path, mode="wb") as fobj:
-                    fobj.write(buffer.getbuffer())
-            elif self._is_abfs_path(destination_path):
+                self._write_buffer_to_s3_path(
+                    buffer=buffer, destination_path=destination_path
+                )
+            elif destination_path and self._is_abfs_path(destination_path):
                 logger.debug(
                     "Uploading file from buffer to ABFS via path",
                     extra={"destination_path": destination_path},
                 )
-                buffer.seek(0)
-                with self.azure_client.open(
-                    path=cast(str, destination_path), mode="wb"
-                ) as fobj:
-                    fobj.write(buffer.getbuffer())
+                self._write_buffer_to_abfs_path(
+                    buffer=buffer, destination_path=destination_path
+                )
             elif destination_path:
                 logger.debug(
                     "Uploading file from buffer to local filesystem",
                     extra={"destination_path": destination_path},
                 )
-                buffer.seek(0)
-                with self.local_client.open(path=destination_path, mode="wb") as fobj:
-                    fobj.write(buffer.getbuffer())
+                self._write_buffer_to_local_path(
+                    buffer=buffer, destination_path=destination_path
+                )
             else:
                 raise ValueError(
                     "Either destination_path or bucket and key must be provided"
@@ -163,47 +319,24 @@ class ObjectStorageService:
         path: str | None = None,
         max_tries: int = 3,
     ) -> bytes:
+        backend: str
+        src_path: str
+        backend, src_path = self._resolve_source_backend_and_path(
+            bucket=bucket, key=key, path=path
+        )
+
         for attempt in range(max_tries):
             try:
-                if bucket and key:
-                    logger.debug(
-                        "Reading file from S3", extra={"bucket": bucket, "key": key}
-                    )
-                    with self.client.open(
-                        path=f"s3://{bucket}/{key}", mode="rb"
-                    ) as fobj:
-                        content: bytes = fobj.read()
-                    logger.debug(
-                        "File read from S3", extra={"bucket": bucket, "key": key}
-                    )
-                    return content
-                if self._is_s3_path(path):
-                    logger.debug("Reading file from S3 via path", extra={"path": path})
-                    with self.client.open(path=path, mode="rb") as fobj:
-                        content: bytes = fobj.read()  # type: ignore[no-redef]
-                    logger.debug("File read from S3 via path", extra={"path": path})
-                    return content
-                if self._is_abfs_path(path):
-                    logger.debug(
-                        "Reading file from ABFS via path", extra={"path": path}
-                    )
-                    with self.azure_client.open(
-                        path=cast(str, path), mode="rb"
-                    ) as fobj:
-                        content = fobj.read()
-                    logger.debug("File read from ABFS via path", extra={"path": path})
-                    return content
-                if path:
-                    logger.debug(
-                        "Reading file from local filesystem", extra={"path": path}
-                    )
-                    with self.local_client.open(path=path, mode="rb") as fobj:
-                        content: bytes = fobj.read()  # type: ignore[no-redef]
-                    logger.debug(
-                        "File read from local filesystem", extra={"path": path}
-                    )
-                    return content
-                raise ValueError("Either path or bucket and key must be provided")
+                logger.debug(
+                    "Reading file",
+                    extra={"backend": backend, "source": src_path},
+                )
+                content = self._read_from_backend_path(backend, src_path)
+                logger.debug(
+                    "File read",
+                    extra={"backend": backend, "source": src_path},
+                )
+                return content
             except OSError as exception:
                 if attempt == max_tries - 1:
                     logger.exception(
@@ -217,7 +350,7 @@ class ObjectStorageService:
                     ) from exception
                 logger.warning(
                     "Failed to read file, retrying...",
-                    extra={"bucket": bucket, "key": key},
+                    extra={"attempt": attempt + 1},
                 )
         raise NotImplementedError("This should never be reached")
 
@@ -229,44 +362,19 @@ class ObjectStorageService:
         destination_path: str | None = None,
     ) -> None:
         try:
-            if bucket and key:
-                logger.debug(
-                    "Uploading file from filesystem to S3",
-                    extra={"bucket": bucket, "key": key},
-                )
-                self.client.put(lpath=file_path, rpath=f"s3://{bucket}/{key}")
-                logger.debug(
-                    "Uploaded file from filesystem to S3",
-                    extra={"bucket": bucket, "key": key},
-                )
-            elif self._is_s3_path(destination_path):
-                logger.debug(
-                    "Uploading file from filesystem to S3 via path",
-                    extra={"destination_path": destination_path},
-                )
-                self.client.put(lpath=file_path, rpath=destination_path)
-            elif self._is_abfs_path(destination_path):
-                logger.debug(
-                    "Uploading file from filesystem to ABFS via path",
-                    extra={"destination_path": destination_path},
-                )
-                self.azure_client.put(
-                    lpath=file_path, rpath=cast(str, destination_path)
-                )
-            elif destination_path:
-                logger.debug(
-                    "Uploading file from filesystem to local filesystem",
-                    extra={"destination_path": destination_path},
-                )
-                self.local_client.put(lpath=file_path, rpath=destination_path)
-                logger.debug(
-                    "Uploaded file from filesystem to local filesystem",
-                    extra={"destination_path": destination_path},
-                )
-            else:
-                raise ValueError(
-                    "Either destination_path or bucket and key must be provided"
-                )
+            backend, dst_path = self._resolve_dest_backend_and_path(
+                bucket=bucket, key=key, destination_path=destination_path
+            )
+            logger.debug(
+                "Uploading file",
+                extra={"backend": backend, "destination": dst_path, "file": file_path},
+            )
+            fs = self._get_fs_for_backend(backend)
+            self._put_file(fs, lpath=file_path, rpath=dst_path)
+            logger.debug(
+                "Uploaded file",
+                extra={"backend": backend, "destination": dst_path, "file": file_path},
+            )
         except (OSError, PermissionError, TimeoutError, FSTimeoutError) as exception:
             logger.exception(
                 "Failed to upload file",
@@ -302,75 +410,35 @@ class ObjectStorageService:
             List of object keys/paths
         """
         try:
-            if self._is_s3_path(path):
-                s3_path = path
-                logger.debug(
-                    "Listing objects from S3 via path",
-                    extra={"path": s3_path, "recursive": recursive},
-                )
-                if recursive:
-                    objects = self.client.find(s3_path)
-                else:
-                    objects = self.client.ls(s3_path, detail=False)
-                logger.debug(
-                    "Listed objects from S3 via path",
-                    extra={"path": s3_path, "count": len(objects)},
-                )
-                return cast(list[str], objects)
-            if self._is_abfs_path(path):
-                abfs_path = cast(str, path)
-                logger.debug(
-                    "Listing objects from ABFS via path",
-                    extra={"path": abfs_path, "recursive": recursive},
-                )
-                if recursive:
-                    objects = self.azure_client.find(abfs_path)
-                else:
-                    objects = self.azure_client.ls(abfs_path, detail=False)
-                logger.debug(
-                    "Listed objects from ABFS via path",
-                    extra={"path": abfs_path, "count": len(objects)},
-                )
-                return cast(list[str], objects)
             if path:
+                backend, resolved_path = self._resolve_path_backend(path)
                 logger.debug(
-                    "Listing objects from local filesystem",
-                    extra={"path": path, "recursive": recursive},
+                    "Listing objects",
+                    extra={
+                        "backend": backend,
+                        "path": resolved_path,
+                        "recursive": recursive,
+                    },
                 )
-                if recursive:
-                    objects = self.local_client.find(path)
-                else:
-                    objects = self.local_client.ls(path, detail=False)
-
+                fs = self._get_fs_for_backend(backend)
+                objects = self._list_via_find_or_ls(fs, resolved_path, recursive)
                 logger.debug(
-                    "Listed objects from local filesystem",
-                    extra={"path": path, "count": len(objects)},
+                    "Listed objects",
+                    extra={
+                        "backend": backend,
+                        "path": resolved_path,
+                        "count": len(objects),
+                    },
                 )
-                return cast(list[str], objects)
+                return objects
             if bucket:
                 s3_path = f"s3://{bucket}/{prefix}" if prefix else f"s3://{bucket}/"
                 logger.debug(
                     "Listing objects from S3",
                     extra={"bucket": bucket, "prefix": prefix, "recursive": recursive},
                 )
-
-                if recursive:
-                    objects = self.client.find(s3_path)
-                else:
-                    objects = self.client.ls(s3_path, detail=False)
-
-                # fsspec can return paths with or without s3:// prefix
-                # depending on implementation
-                keys = []
-                for obj in objects:
-                    if obj.startswith(f"s3://{bucket}/"):
-                        keys.append(obj.replace(f"s3://{bucket}/", ""))
-                    elif obj.startswith(f"{bucket}/"):
-                        keys.append(obj.replace(f"{bucket}/", ""))
-                    else:
-                        # object might be just the key without bucket prefix
-                        keys.append(obj)
-
+                objects = self._list_via_find_or_ls(self.client, s3_path, recursive)
+                keys = self._normalize_s3_keys(bucket, objects)
                 logger.debug(
                     "Listed objects from S3",
                     extra={
@@ -379,7 +447,7 @@ class ObjectStorageService:
                         "count": len(keys),
                     },
                 )
-                return cast(list[str], keys)
+                return keys
             raise ValueError("Either path or bucket must be provided")
         except (
             FileNotFoundError,
@@ -418,13 +486,13 @@ class ObjectStorageService:
                 logger.debug(
                     "Deleted file from S3", extra={"bucket": bucket, "key": key}
                 )
-            elif self._is_s3_path(path):
+            elif path and self._is_s3_path(path):
                 logger.debug("Deleting file from S3 via path", extra={"path": path})
                 self.client.rm(path)
                 logger.debug("Deleted file from S3 via path", extra={"path": path})
-            elif self._is_abfs_path(path):
+            elif path and self._is_abfs_path(path):
                 logger.debug("Deleting file from ABFS via path", extra={"path": path})
-                self.azure_client.rm(cast(str, path))
+                self.azure_client.rm(path)
                 logger.debug("Deleted file from ABFS via path", extra={"path": path})
             elif path:
                 logger.debug(
@@ -472,15 +540,15 @@ class ObjectStorageService:
                     extra={"bucket": bucket, "key": key, "exists": exists},
                 )
                 return bool(exists)
-            if self._is_s3_path(path):
+            if path and self._is_s3_path(path):
                 exists = self.client.exists(path)
                 logger.debug(
                     "Checked file existence in S3 via path",
                     extra={"path": path, "exists": exists},
                 )
                 return bool(exists)
-            if self._is_abfs_path(path):
-                exists = self.azure_client.exists(cast(str, path))
+            if path and self._is_abfs_path(path):
+                exists = self.azure_client.exists(path)
                 logger.debug(
                     "Checked file existence in ABFS via path",
                     extra={"path": path, "exists": exists},
@@ -522,56 +590,33 @@ class ObjectStorageService:
             source_path: The source path. Uses S3 if starts with s3://, otherwise local
             max_tries: Number of retry attempts on failure
         """
+        backend: str
+        src_path: str
+        backend, src_path = self._resolve_source_backend_and_path(
+            bucket=bucket, key=key, path=source_path
+        )
+
         for attempt in range(max_tries):
             try:
-                if bucket and key:
-                    s3_path = f"s3://{bucket}/{key}"
-                    logger.debug(
-                        "Downloading file from S3",
-                        extra={"bucket": bucket, "key": key, "dest_path": dest_path},
-                    )
-                    self.client.get(s3_path, dest_path)
-                    logger.debug(
-                        "Downloaded file from S3",
-                        extra={"bucket": bucket, "key": key, "dest_path": dest_path},
-                    )
-                    return
-                if self._is_s3_path(source_path):
-                    logger.debug(
-                        "Copying file from S3 via path",
-                        extra={"source_path": source_path, "dest_path": dest_path},
-                    )
-                    self.client.get(source_path, dest_path)
-                    logger.debug(
-                        "Copied file from S3 via path",
-                        extra={"source_path": source_path, "dest_path": dest_path},
-                    )
-                    return
-                if self._is_abfs_path(source_path):
-                    logger.debug(
-                        "Copying file from ABFS via path",
-                        extra={"source_path": source_path, "dest_path": dest_path},
-                    )
-                    self.azure_client.get(cast(str, source_path), dest_path)
-                    logger.debug(
-                        "Copied file from ABFS via path",
-                        extra={"source_path": source_path, "dest_path": dest_path},
-                    )
-                    return
-                if source_path:
-                    logger.debug(
-                        "Copying file from local filesystem",
-                        extra={"source_path": source_path, "dest_path": dest_path},
-                    )
-                    self.local_client.get(source_path, dest_path)
-                    logger.debug(
-                        "Copied file from local filesystem",
-                        extra={"source_path": source_path, "dest_path": dest_path},
-                    )
-                    return
-                raise ValueError(
-                    "Either source_path or bucket and key must be provided"
+                logger.debug(
+                    "Downloading file",
+                    extra={
+                        "backend": backend,
+                        "source": src_path,
+                        "dest_path": dest_path,
+                    },
                 )
+                fs = self._get_fs_for_backend(backend)
+                self._get_file(fs, src_path, dest_path)
+                logger.debug(
+                    "Downloaded file",
+                    extra={
+                        "backend": backend,
+                        "source": src_path,
+                        "dest_path": dest_path,
+                    },
+                )
+                return
             except OSError as exception:
                 if attempt == max_tries - 1:
                     logger.exception(
@@ -614,44 +659,44 @@ class ObjectStorageService:
                 logger.debug(
                     "Getting file size from S3", extra={"bucket": bucket, "key": key}
                 )
-                info = self.client.info(s3_path)
-                size = info.get("size", 0)
+                info = cast(dict[str, Any], self.client.info(s3_path))
+                size = self._size_from_info(info)
                 logger.debug(
                     "Got file size from S3",
                     extra={"bucket": bucket, "key": key, "size": size},
                 )
-                return int(size)
-            if self._is_s3_path(path):
+                return size
+            if path and self._is_s3_path(path):
                 logger.debug("Getting file size from S3 via path", extra={"path": path})
-                info = self.client.info(path)
-                size = info.get("size", 0)
+                info = cast(dict[str, Any], self.client.info(path))
+                size = self._size_from_info(info)
                 logger.debug(
                     "Got file size from S3 via path",
                     extra={"path": path, "size": size},
                 )
-                return int(size)
-            if self._is_abfs_path(path):
+                return size
+            if path and self._is_abfs_path(path):
                 logger.debug(
                     "Getting file size from ABFS via path", extra={"path": path}
                 )
-                info = self.azure_client.info(cast(str, path))
-                size = info.get("size", 0)
+                info = self.azure_client.info(path)
+                size = self._size_from_info(info)
                 logger.debug(
                     "Got file size from ABFS via path",
                     extra={"path": path, "size": size},
                 )
-                return int(size)
+                return size
             if path:
                 logger.debug(
                     "Getting file size from local filesystem", extra={"path": path}
                 )
-                info = self.local_client.info(path)
-                size = info.get("size", 0)
+                info = cast(dict[str, Any], self.local_client.info(path))
+                size = self._size_from_info(info)
                 logger.debug(
                     "Got file size from local filesystem",
                     extra={"path": path, "size": size},
                 )
-                return int(size)
+                return size
 
             raise ValueError("Either path or bucket and key must be provided")
         except (
@@ -689,40 +734,40 @@ class ObjectStorageService:
                 logger.debug(
                     "Getting file info from S3", extra={"bucket": bucket, "key": key}
                 )
-                info = self.client.info(s3_path)
+                info = cast(dict[str, Any], self.client.info(s3_path))
                 logger.debug(
                     "Got file info from S3",
                     extra={"bucket": bucket, "key": key},
                 )
-                return cast(dict[str, Any], info)
-            if self._is_s3_path(path):
+                return info
+            if path and self._is_s3_path(path):
                 logger.debug("Getting file info from S3 via path", extra={"path": path})
-                info = self.client.info(path)
+                info = cast(dict[str, Any], self.client.info(path))
                 logger.debug(
                     "Got file info from S3 via path",
                     extra={"path": path},
                 )
-                return cast(dict[str, Any], info)
-            if self._is_abfs_path(path):
+                return info
+            if path and self._is_abfs_path(path):
                 logger.debug(
                     "Getting file info from ABFS via path", extra={"path": path}
                 )
-                info = self.azure_client.info(cast(str, path))
+                info = cast(dict[str, Any], self.azure_client.info(path))
                 logger.debug(
                     "Got file info from ABFS via path",
                     extra={"path": path},
                 )
-                return cast(dict[str, Any], info)
+                return info
             if path:
                 logger.debug(
                     "Getting file info from local filesystem", extra={"path": path}
                 )
-                info = self.local_client.info(path)
+                info = cast(dict[str, Any], self.local_client.info(path))
                 logger.debug(
                     "Got file info from local filesystem",
                     extra={"path": path},
                 )
-                return cast(dict[str, Any], info)
+                return info
 
             raise ValueError("Either path or bucket and key must be provided")
         except (
@@ -831,20 +876,7 @@ class ObjectStorageService:
             )
 
             logger.debug("Copying file", extra={"source": src, "destination": dst})
-
-            if backend == "s3":
-                self.client.copy(src, dst)
-            elif backend == "abfs":
-                self.azure_client.copy(src, dst)
-            elif backend == "local":
-                self.local_client.copy(src, dst)
-            else:
-                # mixed backends (e.g., s3 <-> abfs): stream copy via fsspec
-                with (
-                    fsspec.open(src, mode="rb") as src_f,
-                    fsspec.open(dst, mode="wb") as dst_f,
-                ):
-                    dst_f.write(src_f.read())
+            self._copy_with_backend(backend=backend, src=src, dst=dst)
 
             logger.debug("Copied file", extra={"source": src, "destination": dst})
         except (
@@ -893,27 +925,7 @@ class ObjectStorageService:
             )
 
             logger.debug("Moving file", extra={"source": src, "destination": dst})
-
-            if backend == "s3":
-                self.client.move(src, dst)
-            elif backend == "abfs":
-                self.azure_client.move(src, dst)
-            elif backend == "local":
-                self.local_client.move(src, dst)
-            else:
-                # mixed backends: stream copy then delete source
-                with (
-                    fsspec.open(src, mode="rb") as src_f,
-                    fsspec.open(dst, mode="wb") as dst_f,
-                ):
-                    dst_f.write(src_f.read())
-                # remove source
-                if self._is_s3_path(src):
-                    self.client.rm(src)
-                elif self._is_abfs_path(src):
-                    self.azure_client.rm(src)
-                else:
-                    self.local_client.rm(src)
+            self._move_with_backend(backend=backend, src=src, dst=dst)
 
             logger.debug("Moved file", extra={"source": src, "destination": dst})
         except (
