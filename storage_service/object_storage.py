@@ -1,11 +1,15 @@
 import io
 import logging
-from dataclasses import dataclass
 from typing import Any, cast
 
 import fsspec
 from fsspec.exceptions import FSTimeoutError
 
+from .constants import (
+    ABFS_PATH_PREFIX,
+    ABFSS_PATH_PREFIX,
+    S3_PATH_PREFIX,
+)
 from .exceptions import (
     CheckFileExistenceError,
     CopyFileError,
@@ -20,25 +24,9 @@ from .exceptions import (
     UploadBufferError,
     UploadFileError,
 )
-
-S3_PATH_PREFIX = "s3://"
-ABFS_PATH_PREFIX = "abfs://"
-ABFSS_PATH_PREFIX = "abfss://"
-LOCAL_PATH_PREFIX = "file://"
+from .models import ObjectStorageServiceConfig, TransferPath
 
 logger = logging.getLogger("object_storage_service")
-
-
-@dataclass
-class ObjectStorageServiceConfig:
-    # s3 configuration
-    s3_endpoint_url: str | None = None
-    s3_access_key: str | None = None
-    s3_secret_key: str | None = None
-    s3_max_concurrency: int | None = None
-    # azure configuration
-    azure_account_name: str | None = None
-    azure_account_key: str | None = None
 
 
 class ObjectStorageService:
@@ -210,37 +198,37 @@ class ObjectStorageService:
 
     def _resolve_source_backend_and_path(
         self, bucket: str | None, key: str | None, path: str | None
-    ) -> tuple[str, str]:
+    ) -> TransferPath:
         if bucket and key:
-            return "s3", f"{S3_PATH_PREFIX}{bucket}/{key}"
+            return TransferPath(backend="s3", path=f"{S3_PATH_PREFIX}{bucket}/{key}")
         if path and self._is_s3_path(path):
-            return "s3", path
+            return TransferPath(backend="s3", path=path)
         if path and self._is_abfs_path(path):
-            return "abfs", path
+            return TransferPath(backend="abfs", path=path)
         if path:
-            return "local", path
+            return TransferPath(backend="local", path=path)
         raise ValueError("Either path or bucket and key must be provided")
 
     def _resolve_dest_backend_and_path(
         self, bucket: str | None, key: str | None, destination_path: str | None
-    ) -> tuple[str, str]:
+    ) -> TransferPath:
         if bucket and key:
-            return "s3", f"{S3_PATH_PREFIX}{bucket}/{key}"
+            return TransferPath(backend="s3", path=f"{S3_PATH_PREFIX}{bucket}/{key}")
         if destination_path and self._is_s3_path(destination_path):
-            return "s3", destination_path
+            return TransferPath(backend="s3", path=destination_path)
         if destination_path and self._is_abfs_path(destination_path):
-            return "abfs", destination_path
+            return TransferPath(backend="abfs", path=destination_path)
         if destination_path:
-            return "local", destination_path
+            return TransferPath(backend="local", path=destination_path)
         raise ValueError("Either destination_path or bucket and key must be provided")
 
-    def _resolve_path_backend(self, path: str | None) -> tuple[str, str]:
+    def _resolve_path_backend(self, path: str | None) -> TransferPath:
         if path and self._is_s3_path(path):
-            return "s3", path
+            return TransferPath(backend="s3", path=path)
         if path and self._is_abfs_path(path):
-            return "abfs", path
+            return TransferPath(backend="abfs", path=path)
         if path:
-            return "local", path
+            return TransferPath(backend="local", path=path)
         raise ValueError("Path must be provided")
 
     def _read_from_backend_path(self, backend: str, src_path: str) -> bytes:
@@ -328,22 +316,22 @@ class ObjectStorageService:
         path: str | None = None,
         max_tries: int = 3,
     ) -> bytes:
-        backend: str
-        src_path: str
-        backend, src_path = self._resolve_source_backend_and_path(
+
+        transfer_path: TransferPath = self._resolve_source_backend_and_path(
             bucket=bucket, key=key, path=path
         )
-
+        backend_name: str = transfer_path.backend
+        src_path: str = transfer_path.path
         for attempt in range(max_tries):
             try:
                 logger.debug(
                     "Reading file",
-                    extra={"backend": backend, "source": src_path},
+                    extra={"backend": backend_name, "source": src_path},
                 )
-                content = self._read_from_backend_path(backend, src_path)
+                content = self._read_from_backend_path(backend_name, src_path)
                 logger.debug(
                     "File read",
-                    extra={"backend": backend, "source": src_path},
+                    extra={"backend": backend_name, "source": src_path},
                 )
                 return content
             except OSError as exception:
@@ -371,18 +359,28 @@ class ObjectStorageService:
         destination_path: str | None = None,
     ) -> None:
         try:
-            backend, dst_path = self._resolve_dest_backend_and_path(
+            transfer_path: TransferPath = self._resolve_dest_backend_and_path(
                 bucket=bucket, key=key, destination_path=destination_path
             )
+            backend_name: str = transfer_path.backend
+            dst_path: str = transfer_path.path
             logger.debug(
                 "Uploading file",
-                extra={"backend": backend, "destination": dst_path, "file": file_path},
+                extra={
+                    "backend": backend_name,
+                    "destination": dst_path,
+                    "file": file_path,
+                },
             )
-            fs = self._get_fs_for_backend(backend)
+            fs = self._get_fs_for_backend(backend_name)
             self._put_file(fs, lpath=file_path, rpath=dst_path)
             logger.debug(
                 "Uploaded file",
-                extra={"backend": backend, "destination": dst_path, "file": file_path},
+                extra={
+                    "backend": backend_name,
+                    "destination": dst_path,
+                    "file": file_path,
+                },
             )
         except (OSError, PermissionError, TimeoutError, FSTimeoutError) as exception:
             logger.exception(
@@ -420,21 +418,23 @@ class ObjectStorageService:
         """
         try:
             if path:
-                backend, resolved_path = self._resolve_path_backend(path)
+                transfer_path: TransferPath = self._resolve_path_backend(path)
+                backend_name: str = transfer_path.backend
+                resolved_path: str = transfer_path.path
                 logger.debug(
                     "Listing objects",
                     extra={
-                        "backend": backend,
+                        "backend": backend_name,
                         "path": resolved_path,
                         "recursive": recursive,
                     },
                 )
-                fs = self._get_fs_for_backend(backend)
+                fs = self._get_fs_for_backend(backend_name)
                 objects = self._list_via_find_or_ls(fs, resolved_path, recursive)
                 logger.debug(
                     "Listed objects",
                     extra={
-                        "backend": backend,
+                        "backend": backend_name,
                         "path": resolved_path,
                         "count": len(objects),
                     },
@@ -603,28 +603,27 @@ class ObjectStorageService:
             source_path: The source path. Uses S3 if starts with s3://, otherwise local
             max_tries: Number of retry attempts on failure
         """
-        backend: str
-        src_path: str
-        backend, src_path = self._resolve_source_backend_and_path(
+        transfer_path: TransferPath = self._resolve_source_backend_and_path(
             bucket=bucket, key=key, path=source_path
         )
-
+        backend_name: str = transfer_path.backend
+        src_path: str = transfer_path.path
         for attempt in range(max_tries):
             try:
                 logger.debug(
                     "Downloading file",
                     extra={
-                        "backend": backend,
+                        "backend": backend_name,
                         "source": src_path,
                         "dest_path": dest_path,
                     },
                 )
-                fs = self._get_fs_for_backend(backend)
+                fs = self._get_fs_for_backend(backend_name)
                 self._get_file(fs, src_path, dest_path)
                 logger.debug(
                     "Downloaded file",
                     extra={
-                        "backend": backend,
+                        "backend": backend_name,
                         "source": src_path,
                         "dest_path": dest_path,
                     },

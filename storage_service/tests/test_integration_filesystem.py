@@ -8,10 +8,8 @@ import pytest
 from faker import Faker
 
 from storage_service.exceptions import ReadFileError
-from storage_service.object_storage import (
-    ObjectStorageService,
-    ObjectStorageServiceConfig,
-)
+from storage_service.models import ObjectStorageServiceConfig
+from storage_service.object_storage import ObjectStorageService
 
 fake = Faker()
 

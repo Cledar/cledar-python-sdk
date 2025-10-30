@@ -1,7 +1,7 @@
 import pytest
 from faker import Faker
 
-from storage_service.object_storage import ObjectStorageServiceConfig
+from storage_service.models import ObjectStorageServiceConfig
 
 fake = Faker()
 
