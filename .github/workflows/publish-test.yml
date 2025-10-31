@@ -36,4 +36,4 @@ jobs:
         run: uv build
 
       - name: Publish to TestPyPI
-        run: uv publish --index testpypi
+        run: uv publish --index https://test.pypi.org/simple/
