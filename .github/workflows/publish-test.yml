@@ -1,0 +1,39 @@
+name: Publish to TestPyPI (branch-based)
+
+on:
+  push:
+    branches:
+      - CPL-8-implement-cicd-for-package-publication-in-py-pi   # uruchamiaj tylko z tego brancha
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up uv (Python 3.12)
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: '3.12'
+
+      # Automatycznie dodaj nazwę brancha i numer builda do wersji
+      - name: Set dynamic test version
+        run: |
+          branch="${GITHUB_REF_NAME}"
+          sanitized=$(echo "$branch" | tr '/' '-' | tr '_' '-')
+          version=$(grep '^version' pyproject.toml | cut -d '"' -f2)
+          new_version="${version}+${sanitized}.${GITHUB_RUN_NUMBER}"
+          echo "New version: $new_version"
+          sed -i "s/^version = \".*\"/version = \"$new_version\"/" pyproject.toml
+
+      - name: Build package
+        run: uv build
+
+      - name: Publish to TestPyPI
+        run: uv publish --index-url https://test.pypi.org/legacy/
