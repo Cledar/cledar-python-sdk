@@ -1,6 +1,6 @@
 [project]
 name = "cledar-sdk"
-version = "0.0.0"
+version = "0.0.1"
 description = "Cledar Python SDK"
 authors = [{ name = "Krystian Krol" }]
 requires-python = "==3.12.7"

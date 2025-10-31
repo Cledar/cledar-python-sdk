@@ -25,10 +25,8 @@ jobs:
       # Automatycznie dodaj nazwę brancha i numer builda do wersji
       - name: Set dynamic test version
         run: |
-          branch="${GITHUB_REF_NAME}"
-          sanitized=$(echo "$branch" | tr '/' '-' | tr '_' '-')
           version=$(grep '^version' pyproject.toml | cut -d '"' -f2)
-          new_version="${version}+${sanitized}.${GITHUB_RUN_NUMBER}"
+          new_version="${version}
           echo "New version: $new_version"
           sed -i "s/^version = \".*\"/version = \"$new_version\"/" pyproject.toml
 
