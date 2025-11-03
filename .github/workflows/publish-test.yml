@@ -3,35 +3,36 @@ name: Publish to TestPyPI (branch-based)
 on:
   push:
     branches:
-      - CPL-8-implement-cicd-for-package-publication-in-py-pi   # uruchamiaj tylko z tego brancha
+      - CPL-8-implement-cicd-for-package-publication-in-py-pi
 
 permissions:
   id-token: write
-  contents: read
+  contents: write
+  packages: write
 
 jobs:
-  build-and-publish:
+  release:
     runs-on: self-hosted
+    concurrency:
+      group: release-test
+      cancel-in-progress: true
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Set up uv (Python 3.12)
-        uses: astral-sh/setup-uv@v5
         with:
-          python-version: '3.12'
+          fetch-depth: 0
 
-      # Automatycznie dodaj nazwę brancha i numer builda do wersji
-      - name: Set dynamic test version
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install build tools & semantic-release
         run: |
-          version=$(grep '^version' pyproject.toml | cut -d '"' -f2)
-          new_version="${version}"
-          echo "New version: $new_version"
-          sed -i "s/^version = \".*\"/version = \"$new_version\"/" pyproject.toml
+          python -m pip install --upgrade pip
+          pip install python-semantic-release uv hatch
 
-      - name: Build package
-        run: uv build
-
-      - name: Publish to TestPyPI
-        run: uv publish --publish-url https://test.pypi.org/legacy/
+      - name: Run semantic release (TestPyPI)
+        run: |
+          semantic-release publish --repository testpypi
