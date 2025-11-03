@@ -106,6 +106,15 @@ build_command = "uv build"
 [tool.semantic_release.publish]
 upload_to_vcs_release = false
 
+[tool.semantic_release.branches.main]
+match = "main"
+prerelease = false
+
+[tool.semantic_release.branches.develop]
+match = "CPL-8-implement-cicd-for-package-publication-in-py-pi"
+prerelease = true
+prerelease_token = "dev"
+
 [tool.semantic_release.remote.testpypi]
 type = "repository"
 url = "https://test.pypi.org/legacy/"
