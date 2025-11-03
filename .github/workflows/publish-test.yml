@@ -39,4 +39,5 @@ jobs:
           REPOSITORY_URL: https://test.pypi.org/legacy/
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          semantic-release version
           semantic-release publish
