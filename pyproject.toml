@@ -2,7 +2,7 @@
 name = "cledar-sdk"
 version = "0.0.1"
 description = "Cledar Python SDK"
-authors = [{ name = "Krystian Krol" }]
+authors = [{ name = "Cledar" }]
 requires-python = "==3.12.7"
 readme = "README.md"
 dependencies = [
@@ -96,5 +96,12 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 module = ["testcontainers.*"]
 ignore_missing_imports = true
+
+[tool.semantic_release]
+version_variable = ["pyproject.toml:version"]
+branch = "main"
+upload_to_pypi = true
+build_command = "uv build"
+
 
 
