@@ -100,26 +100,10 @@ ignore_missing_imports = true
 [tool.semantic_release]
 version_toml = ["pyproject.toml:project.version"]
 branch = "main"
-upload_to_pypi = true
+upload_to_pypi = false
 build_command = "uv build"
 tag_format = "v{version}"
 major_on_zero = false
-
-[tool.semantic_release.publish]
-upload_to_vcs_release = false
-
-[tool.semantic_release.branches.main]
-match = "main"
-prerelease = false
-
-[tool.semantic_release.branches.develop]
-match = "CPL-8-implement-cicd-for-package-publication-in-py-pi"
-prerelease = true
-prerelease_token = "dev"
-
-[tool.semantic_release.remote.testpypi]
-type = "repository"
-url = "https://test.pypi.org/legacy/"
 
 
 

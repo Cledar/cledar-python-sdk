@@ -1,40 +1,44 @@
-name: Publish to PyPI
+name: Release (PyPI)
 
 on:
   push:
-    branches: [ main ]
-  workflow_dispatch:
+    branches:
+      - main
+
+permissions:
+  id-token: write
+  contents: write
+  packages: write
 
 jobs:
   release:
-    runs-on: ubuntu-latest
-
-    permissions:
-      contents: write
+    runs-on: self-hosted
+    concurrency:
+      group: release
+      cancel-in-progress: true
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          fetch-tags: true
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Set up uv (Python 3.12)
+        uses: astral-sh/setup-uv@v5
         with:
           python-version: "3.12"
 
-      - name: Install build tools
+      - name: Install semantic-release
         run: |
-          pip install build bumpver twine
+          uv tool install python-semantic-release
 
-      - name: Bump version (patch)
-        run: bumpver update --patch
+      - name: Run semantic release version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          semantic-release version
 
-      - name: Build package
-        run: python -m build
-
-      - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          user: __token__
-          password: ${{ secrets.PYPI_API_TOKEN }}
+      - name: Publish to TestPyPI with uv
+        run: |
+          uv publish --publish-url https://test.pypi.org/legacy/
