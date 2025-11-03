@@ -1,6 +1,7 @@
 from pydantic import BaseModel
 from typing import Literal
 
+
 class ObjectStorageServiceConfig(BaseModel):
     # s3 configuration
     s3_endpoint_url: str | None = None
