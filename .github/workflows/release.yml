@@ -39,6 +39,6 @@ jobs:
         run: |
           semantic-release version
 
-      - name: Publish to TestPyPI with uv
+      - name: Publish to PyPI with uv
         run: |
-          uv publish --publish-url https://test.pypi.org/legacy/
+          uv publish
