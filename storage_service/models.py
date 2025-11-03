@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-
+from typing import Literal
 
 class ObjectStorageServiceConfig(BaseModel):
     # s3 configuration
@@ -13,5 +13,5 @@ class ObjectStorageServiceConfig(BaseModel):
 
 
 class TransferPath(BaseModel):
-    backend: str
+    backend: Literal["s3", "abfs", "local"]
     path: str
