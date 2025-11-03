@@ -15,7 +15,7 @@ jobs:
     runs-on: self-hosted
     concurrency:
       group: release
-      cancel-in-progress: true
+      cancel-in-progress: false
 
     steps:
       - name: Checkout repository
