@@ -18,6 +18,7 @@ dependencies = [
     "redis==5.2.1",
     "fsspec==2025.9.0",
     "s3fs==2025.9.0",
+    "adlfs==2025.8.0",
 ]
 
 
@@ -86,7 +87,8 @@ warn_required_dynamic_aliases = true
 module = ["confluent_kafka", 
 ".kafka_service.schemas", 
 ".output", ".kafka_service.kafka_producer",
- "fsspec", "testcontainers.minio", 
+ "fsspec", "fsspec.exceptions", 
+ "testcontainers.minio", 
  "testcontainers.redis" ] # https://github.com/confluentinc/confluent-kafka-python/issues/1408
 ignore_missing_imports = true
 

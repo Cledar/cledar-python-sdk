@@ -2,12 +2,13 @@
 
 ## Purpose
 
-The `storage_service` package provides a unified interface for interacting with both S3-compatible object storage (like AWS S3, MinIO) and local filesystem storage. It abstracts away the complexity of managing files across different storage backends, providing a consistent API for common operations.
+The `storage_service` package provides a unified interface for interacting with S3-compatible object storage (like AWS S3, MinIO), Azure Blob Storage via ABFS/ABFSS (adlfs), and local filesystem storage. It abstracts away the complexity of managing files across different storage backends, providing a consistent API for common operations.
 
 ### Key Features
 
-- **Unified API**: Single interface for S3 and local filesystem operations
+- **Unified API**: Single interface for S3, Azure ABFS, and local filesystem operations
 - **S3 Compatible**: Works with AWS S3, MinIO, and other S3-compatible storage systems
+- **Azure ABFS Support**: Works with Azure Blob Storage using `abfs://` or `abfss://` URIs (via `adlfs`)
 - **Comprehensive Operations**: Upload, download, list, copy, move, and delete files
 - **Metadata Support**: Get file size, info, and check existence
 - **Buffer Support**: Upload/download directly from/to memory buffers
@@ -471,7 +472,35 @@ Main service class providing storage operations.
 - `copy_file(source_bucket, source_key, dest_bucket, dest_key)` - Copy file
 - `move_file(source_bucket, source_key, dest_bucket, dest_key)` - Move file
 
-All methods support both S3 operations (using `bucket` and `key`) and local filesystem operations (using `path` or `destination_path`).
+All methods support both S3 operations (using `bucket` and `key`), Azure ABFS operations (using `path` starting with `abfs://` or `abfss://`), and local filesystem operations (using `path` or `destination_path`). Mixed-backend copy/move (e.g., S3 to ABFS) is supported via streamed transfer.
+
+### Azure Configuration
+
+Install the optional dependency:
+
+```bash
+uv sync --all-groups  # or pip install adlfs
+```
+
+Provide credentials through `ObjectStorageServiceConfig` (any that apply):
+
+```python
+config = ObjectStorageServiceConfig(
+    s3_endpoint_url="https://s3.amazonaws.com",
+    s3_access_key="...",
+    s3_secret_key="...",
+    s3_max_concurrency=10,
+    # Azure optional settings
+    azure_account_name="youraccount",           # optional
+    azure_account_key="<account key>",          # or OAuth below
+    azure_tenant_id="<tenant id>",              # optional OAuth
+    azure_client_id="<client id>",              # optional OAuth
+    azure_client_secret="<client secret>",      # optional OAuth
+)
+
+service = ObjectStorageService(config)
+content = service.read_file(path="abfs://container/path/to/file.txt")
+```
 
 
 ### Running Pre-commit Checks
