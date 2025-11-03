@@ -103,5 +103,12 @@ branch = "main"
 upload_to_pypi = true
 build_command = "uv build"
 
+[tool.semantic_release.publish]
+upload_to_vcs_release = false
+
+[tool.semantic_release.remote.testpypi]
+type = "repository"
+url = "https://test.pypi.org/legacy/"
+
 
 

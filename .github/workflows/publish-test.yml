@@ -34,5 +34,7 @@ jobs:
           pip install python-semantic-release uv hatch
 
       - name: Run semantic release (TestPyPI)
+        env:
+          REPOSITORY_URL: https://test.pypi.org/legacy/
         run: |
-          semantic-release publish --repository testpypi
+          semantic-release publish
