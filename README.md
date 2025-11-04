@@ -2,7 +2,7 @@
 
 ## Project Description
 
-**Cledar Python SDK** is a shared set of production‑ready services and utilities used across Cledar projects. It can be consumed either as a Git submodule or installed directly from Git.
+**Cledar Python SDK** is a shared set of production‑ready services and utilities used across Cledar projects. It can be installed from PyPI (recommended), or consumed as a Git dependency or Git submodule.
 
 Included modules:
 - kafka_service: Kafka Producer/Consumer, helpers and DLQ handler
@@ -15,21 +15,38 @@ Included modules:
 
 ## Installation and Setup
 
-1. **As a dependency (recommended)**
+1. **From PyPI (recommended)**
 
-   Using uv (SSH, specific tag):
+   Using pip:
    ```bash
-   uv add --git ssh://git@github.com/Cledar/cledar-python-sdk.git@v1.0.1
+   pip install cledar-sdk
    ```
+
+   Using uv:
+   ```bash
+   uv add cledar-sdk
+   ```
+
+   Pin a specific version (example):
+   ```bash
+   pip install "cledar-sdk==1.0.1"
+   ```
+
+2. **From Git (alternative)**
 
    Using pip (SSH, specific tag):
    ```bash
    pip install "git+ssh://git@github.com/Cledar/cledar-python-sdk.git@v1.0.1"
    ```
 
-   You can also point to a branch (e.g. main) instead of a tag.
+   Using uv (SSH, specific tag):
+   ```bash
+   uv add --git ssh://git@github.com/Cledar/cledar-python-sdk.git@v1.0.1
+   ```
 
-2. **As a Git submodule**
+   You can also point to a branch (e.g. `main`) instead of a tag.
+
+3. **As a Git submodule**
    ```bash
    git submodule add git@github.com:Cledar/cledar-python-sdk.git vendor/cledar-python-sdk
    git submodule update --init --recursive
@@ -39,9 +56,9 @@ Included modules:
    uv add -e ./vendor/cledar-python-sdk
    ```
 
-3. **Developing locally**
+4. **Developing locally**
    ```bash
-   git clone git@github.com:Cledar/cledar-python-sdk.git
+   git clone git@github.com/Cledar/cledar-python-sdk.git
    cd cledar-python-sdk
    uv sync
    ```
