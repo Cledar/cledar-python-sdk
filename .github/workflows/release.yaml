@@ -29,6 +29,12 @@ jobs:
           fetch-tags: true
           ssh-key: ${{ secrets.DEPLOY_KEY }}
 
+      - name: Set up Git identity and remote
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git remote set-url origin git@github.com:Cledar/cledar-python-sdk.git
+
       - name: Set up uv (Python 3.12)
         uses: astral-sh/setup-uv@v5
         with:
