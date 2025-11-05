@@ -16,28 +16,6 @@ env:
 jobs:
 
   # -------------------------------------------------------
-  # Versioning (semantic-release)
-  # -------------------------------------------------------
-  version:
-    runs-on: self-hosted
-    if: github.ref == 'refs/heads/main'
-
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Semantic Release
-        id: semantic
-        uses: cycjimmy/semantic-release-action@v4
-        with:
-          semantic_version: latest
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-    outputs:
-      version: ${{ steps.semantic.outputs.new_release_version }}
-
-  # -------------------------------------------------------
   # Lint: Ruff Format
   # -------------------------------------------------------
   ruff-format:
