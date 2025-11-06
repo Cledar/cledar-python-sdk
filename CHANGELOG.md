@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.2.1 (2025-11-06)
+
+### Bug Fixes
+
+- **CPL-183**: Update pyproject ([#9](https://github.com/Cledar/cledar-python-sdk/pull/9),
+  [`5c231b9`](https://github.com/Cledar/cledar-python-sdk/commit/5c231b94aae67a6843737e8971738754708f46fb))
+
+
 ## v1.2.0 (2025-11-05)
 
 ### Bug Fixes
