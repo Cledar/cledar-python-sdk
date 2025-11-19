@@ -5,6 +5,7 @@ from datetime import datetime
 from enum import Enum
 
 import pytest
+import pytest_asyncio
 from pydantic import BaseModel
 from testcontainers.redis import RedisContainer
 
@@ -32,7 +33,7 @@ def redis_container():
         yield redis_db
 
 
-@pytest.fixture(scope="function")
+@pytest_asyncio.fixture(scope="function")
 async def async_redis_service(
     redis_container: RedisContainer,
 ) -> AsyncGenerator[AsyncRedisService, None]:
