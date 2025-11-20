@@ -7,6 +7,7 @@ The `redis_service` package provides a typed, high-level interface over Redis fo
 ### Key Features
 
 - **Typed API with Pydantic**: Validate JSON payloads into Pydantic models on read
+- **Async/Sync Support**: Both `AsyncRedisService` (async/await) and `RedisService` (synchronous) available
 - **Safe Serialization**: Custom JSON encoder for `Enum` (to lowercase names) and `datetime` (ISO 8601)
 - **Ergonomic Helpers**: `get`, `get_raw`, `set`, `list_keys`, `mget`, `delete`
 - **Bulk Reads**: `mget` returns a list with typed results, `None`, or `FailedValue` for per-key errors
@@ -21,6 +22,7 @@ The `redis_service` package provides a typed, high-level interface over Redis fo
 - Reading and writing typed configuration objects
 - Bulk retrieval of many keys while tolerating per-key failures
 - Observing and reacting to configuration changes in near real-time
+- Asynchronous I/O for high-performance applications (FastAPI, aiohttp, etc.)
 
 ## Installation
 
@@ -34,7 +36,9 @@ uv sync --all-groups
 pip install -e .
 ```
 
-## Usage Example
+## Usage Examples
+
+### Synchronous Usage
 
 ```python
 from pydantic import BaseModel
@@ -78,6 +82,122 @@ bulk = service.mget(keys, UserModel)
 service.delete("greeting")
 ```
 
+### Asynchronous Usage
+
+```python
+import asyncio
+from pydantic import BaseModel
+from redis_service.redis import AsyncRedisService, RedisServiceConfig
+
+
+class UserModel(BaseModel):
+    user_id: int
+    name: str
+
+
+async def main():
+    # Configure and create async service
+    config = RedisServiceConfig(
+        redis_host="localhost",
+        redis_port=6379,
+        redis_db=0,
+    )
+    service = AsyncRedisService(config)
+    await service.connect()
+
+    try:
+        # Health check
+        assert await service.is_alive() is True
+
+        # Write a typed value (automatically serialized to JSON)
+        user = UserModel(user_id=1, name="Alice")
+        await service.set("user:1", user)
+
+        # Read and validate back into the model
+        loaded = await service.get("user:1", UserModel)
+        print(loaded)  # UserModel(user_id=1, name='Alice')
+
+        # Raw access (no validation/decoding beyond Redis decode_responses)
+        await service.set("greeting", "hello")
+        print(await service.get_raw("greeting"))  # "hello"
+
+        # List keys by pattern and bulk-fetch
+        keys = await service.list_keys("user:*")
+        bulk = await service.mget(keys, UserModel)
+        # bulk is a list of UserModel | None | FailedValue
+
+        # Delete
+        await service.delete("greeting")
+
+    finally:
+        # Always close the connection
+        await service.close()
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+### FastAPI Integration Example
+
+```python
+from contextlib import asynccontextmanager
+from fastapi import FastAPI, Depends
+from pydantic import BaseModel
+from redis_service.redis import AsyncRedisService, RedisServiceConfig
+
+
+class UserModel(BaseModel):
+    user_id: int
+    name: str
+
+
+# Global service instance
+redis_service: AsyncRedisService | None = None
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: initialize Redis service
+    global redis_service
+    config = RedisServiceConfig(
+        redis_host="localhost",
+        redis_port=6379,
+        redis_db=0,
+    )
+    redis_service = AsyncRedisService(config)
+    await redis_service.connect()
+
+    yield
+
+    # Shutdown: close Redis connection
+    if redis_service:
+        await redis_service.close()
+
+
+app = FastAPI(lifespan=lifespan)
+
+
+def get_redis() -> AsyncRedisService:
+    if redis_service is None:
+        raise RuntimeError("Redis service not initialized")
+    return redis_service
+
+
+@app.get("/users/{user_id}")
+async def get_user(user_id: int, redis: AsyncRedisService = Depends(get_redis)):
+    user = await redis.get(f"user:{user_id}", UserModel)
+    if user is None:
+        return {"error": "User not found"}
+    return user
+
+
+@app.post("/users")
+async def create_user(user: UserModel, redis: AsyncRedisService = Depends(get_redis)):
+    await redis.set(f"user:{user.user_id}", user)
+    return {"status": "created", "user": user}
+```
+
 ## Development
 
 ### Project Structure
@@ -85,16 +205,18 @@ service.delete("greeting")
 ```
 redis_service/
 ├── __init__.py
-├── exceptions.py            # Custom exceptions
-├── logger.py                # Module logger
-├── model.py                 # Base config type for RedisConfigStore
-├── redis.py                 # Main RedisService implementation
-├── redis_config_store.py    # Config store with caching and watchers
-├── example.py               # Small example of using RedisConfigStore
+├── exceptions.py                      # Custom exceptions
+├── logger.py                          # Module logger
+├── model.py                           # Base config type for RedisConfigStore
+├── redis.py                           # RedisService and AsyncRedisService
+├── redis_config_store.py              # Config store with caching and watchers
+├── example.py                         # Small example of using RedisConfigStore
 ├── tests/
-│   ├── test_redis_service.py       # Unit tests (mocked Redis)
-│   └── test_integration_redis.py   # Integration tests with testcontainers
-└── README.md                # This file
+│   ├── test_redis_service.py          # Sync unit tests (mocked Redis)
+│   ├── test_async_redis_service.py    # Async unit tests (mocked Redis)
+│   ├── test_integration_redis.py      # Sync integration tests with testcontainers
+│   └── test_async_integration_redis.py # Async integration tests with testcontainers
+└── README.md                          # This file
 ```
 
 ## Running Linters
@@ -158,9 +280,9 @@ PYTHONPATH=$PWD uv run pytest redis_service/tests/test_redis_service.py::test_se
 
 ### Unit Test Details
 
-- **Test Framework**: pytest
-- **Mocking**: unittest.mock
-- **Test Count**: 30 unit tests
+- **Test Framework**: pytest, pytest-asyncio
+- **Mocking**: unittest.mock (sync), AsyncMock (async)
+- **Test Count**: 60 unit tests (30 sync + 30 async)
 
 ## Running Integration Tests
 
@@ -183,10 +305,10 @@ PYTHONPATH=$PWD uv run pytest redis_service/tests/test_integration_redis.py -v
 
 ### Integration Test Details
 
-- **Test Framework**: pytest + testcontainers
+- **Test Framework**: pytest, pytest-asyncio + testcontainers
 - **Container**: Redis
 - **Image**: `redis:7.2-alpine`
-- **Test Count**: 8 integration tests
+- **Test Count**: 17 integration tests (8 sync + 9 async)
 
 ### Run All Tests (Unit + Integration)
 
@@ -284,12 +406,30 @@ class RedisServiceConfig:
     redis_password: str | None = None
 ```
 
-### RedisService
+### RedisService (Synchronous)
 
 High-level service over `redis.Redis` with JSON handling and typed reads.
 
 #### Methods
 
+- `is_alive() -> bool` — Ping Redis to check connectivity
+- `set(key: str, value: Any) -> bool` — Serialize and store a value; supports dict/list, Pydantic models, primitives
+- `get(key: str, model: type[T]) -> T | None` — Read and validate JSON into the given Pydantic model
+- `get_raw(key: str) -> Any | None` — Read raw value (usually string) without validation
+- `list_keys(pattern: str) -> list[str]` — List keys matching a glob-like pattern
+- `mget(keys: list[str], model: type[T]) -> list[T | None | FailedValue]` — Bulk read with per-key error details
+- `delete(key: str) -> bool` — Delete a key; returns True if a key was removed
+
+### AsyncRedisService (Asynchronous)
+
+High-level async service over `redis.asyncio.Redis` with JSON handling and typed reads.
+
+#### Methods
+
+All methods are async (use `await`):
+
+- `connect() -> None` — Establish connection to Redis (must be called before using other methods)
+- `close() -> None` — Close the Redis connection
 - `is_alive() -> bool` — Ping Redis to check connectivity
 - `set(key: str, value: Any) -> bool` — Serialize and store a value; supports dict/list, Pydantic models, primitives
 - `get(key: str, model: type[T]) -> T | None` — Read and validate JSON into the given Pydantic model
