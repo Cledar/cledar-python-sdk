@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v1.3.0 (2025-11-20)
+
+### Features
+
+- **CPL-184**: Add async support to Redis service module
+  ([#10](https://github.com/Cledar/cledar-python-sdk/pull/10),
+  [`97ee651`](https://github.com/Cledar/cledar-python-sdk/commit/97ee651ca0b4e4db23e899de785361c441a29d9a))
+
+- **CPL-184**: Update test fixture to use pytest-asyncio
+  ([#10](https://github.com/Cledar/cledar-python-sdk/pull/10),
+  [`97ee651`](https://github.com/Cledar/cledar-python-sdk/commit/97ee651ca0b4e4db23e899de785361c441a29d9a))
+
+
 ## v1.2.1 (2025-11-06)
 
 ### Bug Fixes
