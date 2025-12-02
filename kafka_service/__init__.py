@@ -1,7 +1,12 @@
 from .clients.base import BaseKafkaClient
 from .clients.consumer import KafkaConsumer
 from .clients.producer import KafkaProducer
-from .config.schemas import KafkaConsumerConfig, KafkaProducerConfig
+from .config.schemas import (
+    KafkaConsumerConfig,
+    KafkaProducerConfig,
+    KafkaSaslMechanism,
+    KafkaSecurityProtocol,
+)
 from .exceptions import (
     KafkaConnectionError,
     KafkaConsumerError,
@@ -26,6 +31,8 @@ __all__ = [
     "KafkaMessage",
     "KafkaProducerConfig",
     "KafkaConsumerConfig",
+    "KafkaSecurityProtocol",
+    "KafkaSaslMechanism",
     "KafkaConnectionError",
     "KafkaConsumerNotConnectedError",
     "KafkaProducerNotConnectedError",

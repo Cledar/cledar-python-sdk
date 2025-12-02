@@ -20,16 +20,7 @@ class KafkaConsumer(BaseKafkaClient):
     client: Consumer | None = None
 
     def connect(self) -> None:
-        self.client = Consumer(
-            {
-                "bootstrap.servers": self.config.kafka_servers,
-                "enable.auto.commit": False,
-                "enable.partition.eof": False,
-                "auto.commit.interval.ms": self.config.kafka_auto_commit_interval_ms,
-                "auto.offset.reset": self.config.kafka_offset,
-                "group.id": self.config.kafka_group_id,
-            }
-        )
+        self.client = Consumer(self.config.to_kafka_config())
         self.check_connection()
         logger.info(
             "Connected KafkaConsumer to Kafka servers.",

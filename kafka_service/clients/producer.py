@@ -17,14 +17,7 @@ class KafkaProducer(BaseKafkaClient):
     client: Producer | None = None
 
     def connect(self) -> None:
-        self.client = Producer(
-            {
-                "bootstrap.servers": self.config.kafka_servers,
-                "client.id": self.config.kafka_group_id,
-                "compression.type": self.config.compression_type,
-                "partitioner": self.config.kafka_partitioner,
-            }
-        )
+        self.client = Producer(self.config.to_kafka_config())
         self.check_connection()
         logger.info(
             "Connected Producer to Kafka servers.",

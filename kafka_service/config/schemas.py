@@ -1,5 +1,25 @@
+from enum import Enum
+
 from pydantic import field_validator
 from pydantic.dataclasses import dataclass
+
+
+class KafkaSecurityProtocol(str, Enum):
+    """Supported Kafka security protocols."""
+
+    PLAINTEXT = "PLAINTEXT"
+    SSL = "SSL"
+    SASL_PLAINTEXT = "SASL_PLAINTEXT"
+    SASL_SSL = "SASL_SSL"
+
+
+class KafkaSaslMechanism(str, Enum):
+    """Supported Kafka SASL mechanisms."""
+
+    PLAIN = "PLAIN"
+    SCRAM_SHA_256 = "SCRAM-SHA-256"
+    SCRAM_SHA_512 = "SCRAM-SHA-512"
+    GSSAPI = "GSSAPI"
 
 
 def _validate_kafka_servers(v: list[str] | str) -> list[str] | str:
@@ -36,6 +56,10 @@ class KafkaProducerConfig:
 
     kafka_servers: list[str] | str
     kafka_group_id: str
+    kafka_security_protocol: KafkaSecurityProtocol | None = None
+    kafka_sasl_mechanism: KafkaSaslMechanism | None = None
+    kafka_sasl_username: str | None = None
+    kafka_sasl_password: str | None = None
     kafka_topic_prefix: str | None = None
     kafka_block_buffer_time_sec: int = 10
     kafka_connection_check_timeout_sec: int = 5
@@ -57,6 +81,27 @@ class KafkaProducerConfig:
     def validate_positive_timeouts(cls, v: int) -> int:
         return _validate_non_negative(v)
 
+    def to_kafka_config(self) -> dict[str, list[str] | str | None]:
+        """Build Kafka producer configuration dictionary."""
+        config = {
+            "bootstrap.servers": self.kafka_servers,
+            "client.id": self.kafka_group_id,
+            "compression.type": self.compression_type,
+            "partitioner": self.kafka_partitioner,
+        }
+
+        # Add SASL configuration if specified
+        if self.kafka_security_protocol:
+            config["security.protocol"] = self.kafka_security_protocol.value
+            if self.kafka_sasl_mechanism:
+                config["sasl.mechanism"] = self.kafka_sasl_mechanism.value
+            if self.kafka_sasl_username:
+                config["sasl.username"] = self.kafka_sasl_username
+            if self.kafka_sasl_password:
+                config["sasl.password"] = self.kafka_sasl_password
+
+        return config
+
 
 @dataclass(frozen=True)
 class KafkaConsumerConfig:
@@ -76,6 +121,10 @@ class KafkaConsumerConfig:
 
     kafka_servers: list[str] | str
     kafka_group_id: str
+    kafka_security_protocol: KafkaSecurityProtocol | None = None
+    kafka_sasl_mechanism: KafkaSaslMechanism | None = None
+    kafka_sasl_username: str | None = None
+    kafka_sasl_password: str | None = None
     kafka_offset: str = "latest"
     kafka_topic_prefix: str | None = None
     kafka_block_consumer_time_sec: int = 2
@@ -104,3 +153,26 @@ class KafkaConsumerConfig:
     @classmethod
     def validate_positive_timeouts(cls, v: int) -> int:
         return _validate_non_negative(v)
+
+    def to_kafka_config(self) -> dict[str, int | list[str] | str]:
+        """Build Kafka consumer configuration dictionary."""
+        config = {
+            "bootstrap.servers": self.kafka_servers,
+            "enable.auto.commit": False,
+            "enable.partition.eof": False,
+            "auto.commit.interval.ms": self.kafka_auto_commit_interval_ms,
+            "auto.offset.reset": self.kafka_offset,
+            "group.id": self.kafka_group_id,
+        }
+
+        # Add SASL configuration if specified
+        if self.kafka_security_protocol:
+            config["security.protocol"] = self.kafka_security_protocol.value
+            if self.kafka_sasl_mechanism:
+                config["sasl.mechanism"] = self.kafka_sasl_mechanism.value
+            if self.kafka_sasl_username:
+                config["sasl.username"] = self.kafka_sasl_username
+            if self.kafka_sasl_password:
+                config["sasl.password"] = self.kafka_sasl_password
+
+        return config
