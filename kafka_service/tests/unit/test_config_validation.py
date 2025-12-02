@@ -8,7 +8,12 @@ from dataclasses import FrozenInstanceError
 import pytest
 from pydantic import ValidationError
 
-from kafka_service.config.schemas import KafkaConsumerConfig, KafkaProducerConfig
+from kafka_service.config.schemas import (
+    KafkaConsumerConfig,
+    KafkaProducerConfig,
+    KafkaSaslMechanism,
+    KafkaSecurityProtocol,
+)
 from kafka_service.models.message import KafkaMessage
 
 
@@ -523,3 +528,82 @@ def test_config_inequality() -> None:
     )
 
     assert config1 != config2
+
+
+# SASL Configuration Tests
+
+
+def test_config_with_sasl_authentication() -> None:
+    """Test creating configs with SASL authentication."""
+    producer_config = KafkaProducerConfig(
+        kafka_servers="localhost:9092",
+        kafka_group_id="test-group",
+        kafka_security_protocol=KafkaSecurityProtocol.SASL_PLAINTEXT,
+        kafka_sasl_mechanism=KafkaSaslMechanism.PLAIN,
+        kafka_sasl_username="test-user",
+        kafka_sasl_password="test-password",
+    )
+
+    consumer_config = KafkaConsumerConfig(
+        kafka_servers="localhost:9092",
+        kafka_group_id="test-group",
+        kafka_security_protocol=KafkaSecurityProtocol.SASL_SSL,
+        kafka_sasl_mechanism=KafkaSaslMechanism.SCRAM_SHA_256,
+        kafka_sasl_username="test-user",
+        kafka_sasl_password="test-password",
+    )
+
+    assert (
+        producer_config.kafka_security_protocol == KafkaSecurityProtocol.SASL_PLAINTEXT
+    )
+    assert producer_config.kafka_sasl_mechanism == KafkaSaslMechanism.PLAIN
+    assert consumer_config.kafka_security_protocol == KafkaSecurityProtocol.SASL_SSL
+    assert consumer_config.kafka_sasl_mechanism == KafkaSaslMechanism.SCRAM_SHA_256
+
+
+def test_config_invalid_sasl_values() -> None:
+    """Test that invalid SASL values raise ValidationError."""
+    with pytest.raises(ValidationError):
+        KafkaProducerConfig(
+            kafka_servers="localhost:9092",
+            kafka_group_id="test-group",
+            kafka_security_protocol="INVALID",  # type: ignore[arg-type]
+        )
+
+    with pytest.raises(ValidationError):
+        KafkaConsumerConfig(
+            kafka_servers="localhost:9092",
+            kafka_group_id="test-group",
+            kafka_sasl_mechanism="INVALID",  # type: ignore[arg-type]
+        )
+
+
+def test_to_kafka_config_with_and_without_sasl() -> None:
+    """Test that to_kafka_config() correctly includes/excludes SASL parameters."""
+    # Without SASL
+    config_no_sasl = KafkaProducerConfig(
+        kafka_servers="localhost:9092",
+        kafka_group_id="test-group",
+    )
+    kafka_config_no_sasl = config_no_sasl.to_kafka_config()
+
+    assert "security.protocol" not in kafka_config_no_sasl
+    assert "sasl.mechanism" not in kafka_config_no_sasl
+    assert "sasl.username" not in kafka_config_no_sasl
+    assert "sasl.password" not in kafka_config_no_sasl
+
+    # With SASL
+    config_with_sasl = KafkaConsumerConfig(
+        kafka_servers="localhost:9092",
+        kafka_group_id="test-group",
+        kafka_security_protocol=KafkaSecurityProtocol.SASL_SSL,
+        kafka_sasl_mechanism=KafkaSaslMechanism.SCRAM_SHA_256,
+        kafka_sasl_username="user",
+        kafka_sasl_password="pass",
+    )
+    kafka_config_with_sasl = config_with_sasl.to_kafka_config()
+
+    assert kafka_config_with_sasl["security.protocol"] == "SASL_SSL"
+    assert kafka_config_with_sasl["sasl.mechanism"] == "SCRAM-SHA-256"
+    assert kafka_config_with_sasl["sasl.username"] == "user"
+    assert kafka_config_with_sasl["sasl.password"] == "pass"
