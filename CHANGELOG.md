@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.4.0 (2025-12-02)
+
+### Features
+
+- **CPL-242**: Add Kafka SASL support ([#11](https://github.com/Cledar/cledar-python-sdk/pull/11),
+  [`1db2b5b`](https://github.com/Cledar/cledar-python-sdk/commit/1db2b5b0fe8b55e5698134a1f9dfbd833cc705ea))
+
+
 ## v1.3.0 (2025-11-20)
 
 ### Features
