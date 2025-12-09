@@ -114,3 +114,11 @@ upload_to_pypi = false
 build_command = "uv build"
 tag_format = "v{version}"
 major_on_zero = false
+
+[tool.semantic_release.branches.main]
+match = "main"
+
+[tool.semantic_release.branches.other]
+match = ".*"
+prerelease_token = "rc"
+prerelease = true
