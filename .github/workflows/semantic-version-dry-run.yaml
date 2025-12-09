@@ -1,0 +1,42 @@
+name: Semantic Version Dry Run
+
+on:
+  pull_request:
+    branches:
+      - main
+
+# permissions:
+#   id-token: write
+#   contents: write
+#   packages: write
+
+jobs:
+  semantic-version-dry-run:
+    runs-on: self-hosted
+    concurrency:
+      group: semantic-version-dry-run
+      cancel-in-progress: false
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          ssh-key: ${{ secrets.DEPLOY_KEY }}
+          ref: ${{ github.head_ref }}
+
+      - name: Set up uv (Python 3.12)
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install semantic-release
+        run: |
+          uv tool install python-semantic-release
+
+      - name: Run semantic release version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          semantic-release version --print
