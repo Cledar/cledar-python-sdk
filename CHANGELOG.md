@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v2.0.1 (2025-12-09)
+
+### Bug Fixes
+
+- **CPL-302**: Update build
+  ([`a17cd0f`](https://github.com/Cledar/cledar-python-sdk/commit/a17cd0fba354b7e5488782e60fcb6cd6e888c805))
+
+
 ## v2.0.0 (2025-12-09)
 
 ### Continuous Integration
