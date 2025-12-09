@@ -87,6 +87,7 @@ include = [
     "cledar/nonce",
     "cledar/redis",
     "cledar/storage",
+    "cledar/__init__.py",
 ]
 
 [tool.pydantic-mypy]
