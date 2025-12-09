@@ -2,6 +2,25 @@
 
 <!-- version list -->
 
+## v2.0.0 (2025-12-09)
+
+### Continuous Integration
+
+- **CPL-0**: Add sem ver dry run
+  ([`3beb1f4`](https://github.com/Cledar/cledar-python-sdk/commit/3beb1f46778643ae2536e08fa11d38dba47606c1))
+
+- **CPL-0**: Remove unused config
+  ([`9619559`](https://github.com/Cledar/cledar-python-sdk/commit/9619559b39587d4ef885a1dc8822f8f428cb9f4d))
+
+### Features
+
+- **CPL-302**: Add cledar prefix to all packages\
+  ([`d632996`](https://github.com/Cledar/cledar-python-sdk/commit/d6329960964dcec28d5c7cdcf4f9abc970331c34))
+
+- **CPL-302**: Update paths
+  ([`17bd1f4`](https://github.com/Cledar/cledar-python-sdk/commit/17bd1f41629deb53f3d0920f165ca09d2ae6e46d))
+
+
 ## v1.4.0 (2025-12-02)
 
 ### Features
