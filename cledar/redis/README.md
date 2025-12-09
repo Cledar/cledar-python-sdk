@@ -42,7 +42,7 @@ pip install -e .
 
 ```python
 from pydantic import BaseModel
-from cledar.redis.redis import RedisService, RedisServiceConfig
+from cledar.redis import RedisService, RedisServiceConfig
 
 
 class UserModel(BaseModel):
@@ -87,7 +87,7 @@ service.delete("greeting")
 ```python
 import asyncio
 from pydantic import BaseModel
-from cledar.redis.redis import AsyncRedisService, RedisServiceConfig
+from cledar.redis import AsyncRedisService, RedisServiceConfig
 
 
 class UserModel(BaseModel):
@@ -144,7 +144,7 @@ if __name__ == "__main__":
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends
 from pydantic import BaseModel
-from cledar.redis.redis import AsyncRedisService, RedisServiceConfig
+from cledar.redis import AsyncRedisService, RedisServiceConfig
 
 
 class UserModel(BaseModel):
@@ -203,7 +203,7 @@ async def create_user(user: UserModel, redis: AsyncRedisService = Depends(get_re
 ### Project Structure
 
 ```
-redis_service/
+cledar/redis/
 ├── __init__.py
 ├── exceptions.py                      # Custom exceptions
 ├── logger.py                          # Module logger

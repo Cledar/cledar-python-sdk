@@ -1,3 +1,3 @@
-from .monitoring_server import MonitoringServer, MonitoringServerConfig
+from .monitoring_server import EndpointFilter, MonitoringServer, MonitoringServerConfig
 
-__all__ = ["MonitoringServer", "MonitoringServerConfig"]
+__all__ = ["MonitoringServer", "MonitoringServerConfig", "EndpointFilter"]

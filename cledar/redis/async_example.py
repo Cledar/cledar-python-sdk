@@ -12,7 +12,7 @@ import asyncio
 
 from pydantic import BaseModel
 
-from cledar.redis.redis import AsyncRedisService, RedisServiceConfig
+from cledar.redis import AsyncRedisService, RedisServiceConfig
 
 
 class UserModel(BaseModel):

@@ -1,7 +1,7 @@
 import pytest
 from faker import Faker
 
-from cledar.storage.models import ObjectStorageServiceConfig
+from cledar.storage import ObjectStorageServiceConfig
 
 fake = Faker()
 

@@ -6,11 +6,7 @@ import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from cledar.monitoring.monitoring_server import (
-    EndpointFilter,
-    MonitoringServer,
-    MonitoringServerConfig,
-)
+from cledar.monitoring import EndpointFilter, MonitoringServer, MonitoringServerConfig
 
 # ------------------------------------------------------------------------------
 #  Fixtures

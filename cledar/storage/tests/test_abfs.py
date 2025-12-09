@@ -7,8 +7,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from faker import Faker
 
-from cledar.storage.models import ObjectStorageServiceConfig
-from cledar.storage.object_storage import ObjectStorageService
+from cledar.storage import ObjectStorageService, ObjectStorageServiceConfig
 
 fake = Faker()
 
