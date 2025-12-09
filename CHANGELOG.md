@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v2.0.3 (2025-12-09)
+
+### Bug Fixes
+
+- **CPL-302**: Include cledar
+  ([`3abd44e`](https://github.com/Cledar/cledar-python-sdk/commit/3abd44e0ed5b1e2e09c5ed012599a94535bf1748))
+
+
 ## v2.0.2 (2025-12-09)
 
 ### Bug Fixes
