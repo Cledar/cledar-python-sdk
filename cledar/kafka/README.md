@@ -31,8 +31,8 @@ pip install -e .
 
 ```python
 import time
-from cledar.kafka_service.clients.producer import KafkaProducer
-from cledar.kafka_service.config.schemas import KafkaProducerConfig
+from cledar.kafka.clients.producer import KafkaProducer
+from cledar.kafka.config.schemas import KafkaProducerConfig
 
 producer = KafkaProducer(
     KafkaProducerConfig(
@@ -60,8 +60,8 @@ producer.shutdown()
 ### Consumer: subscribe and consume
 
 ```python
-from cledar.kafka_service.clients.consumer import KafkaConsumer
-from cledar.kafka_service.config.schemas import KafkaConsumerConfig
+from cledar.kafka.clients.consumer import KafkaConsumer
+from cledar.kafka.config.schemas import KafkaConsumerConfig
 
 consumer = KafkaConsumer(
     KafkaConsumerConfig(
@@ -87,8 +87,8 @@ consumer.shutdown()
 ### Dead Letter Handling
 
 ```python
-from cledar.kafka_service.handlers.dead_letter import DeadLetterHandler
-from cledar.kafka_service.models.output import FailedMessageData
+from cledar.kafka.handlers.dead_letter import DeadLetterHandler
+from cledar.kafka.models.output import FailedMessageData
 
 # Assume you already have a connected producer and a consumed message
 handler = DeadLetterHandler(producer, dlq_topic="errors-topic")
@@ -123,7 +123,7 @@ print(parsed.payload.id, parsed.payload.message)
 ## Project Structure
 
 ```
-kafka/
+cledar/kafka/
 ├── clients/
 │   ├── base.py                 # BaseKafkaClient (shared logic)
 │   ├── consumer.py             # KafkaConsumer wrapper
@@ -186,7 +186,7 @@ PYTHONPATH=. uv run pytest kafka/tests/integration/ -v
 ### Configs (pydantic dataclasses)
 
 ```python
-from kafka_service.config.schemas import KafkaProducerConfig, KafkaConsumerConfig
+from cledar.kafka.config.schemas import KafkaProducerConfig, KafkaConsumerConfig
 ```
 
 - Validated, frozen configs; construct with required `kafka_servers` and `kafka_group_id`.
@@ -195,7 +195,7 @@ from kafka_service.config.schemas import KafkaProducerConfig, KafkaConsumerConfi
 ### Producer
 
 ```python
-from kafka_service.clients.producer import KafkaProducer
+from cledar.kafka.clients.producer import KafkaProducer
 ```
 
 - `connect()` / `shutdown()`
@@ -205,7 +205,7 @@ from kafka_service.clients.producer import KafkaProducer
 ### Consumer
 
 ```python
-from kafka_service.clients.consumer import KafkaConsumer
+from cledar.kafka.clients.consumer import KafkaConsumer
 ```
 
 - `connect()` / `shutdown()`
@@ -217,7 +217,7 @@ from kafka_service.clients.consumer import KafkaConsumer
 ### Errors
 
 ```python
-from kafka_service.exceptions import (
+from kafka.exceptions import (
     KafkaConnectionError,
     KafkaProducerNotConnectedError,
     KafkaConsumerNotConnectedError,

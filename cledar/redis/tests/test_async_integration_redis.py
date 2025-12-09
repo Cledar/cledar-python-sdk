@@ -9,7 +9,7 @@ import pytest_asyncio
 from pydantic import BaseModel
 from testcontainers.redis import RedisContainer
 
-from cledar.redis.redis import AsyncRedisService, FailedValue, RedisServiceConfig
+from cledar.redis import AsyncRedisService, FailedValue, RedisServiceConfig
 
 
 class UserModel(BaseModel):

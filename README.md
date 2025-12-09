@@ -138,7 +138,7 @@ storage.upload_file(
 
 ### Monitoring Server
 ```python
-from monitoring_service.monitoring_server import MonitoringServer, MonitoringServerConfig
+from cledar.monitoring import MonitoringServer, MonitoringServerConfig
 
 config = MonitoringServerConfig(
     readiness_checks={"s3": storage.is_alive},

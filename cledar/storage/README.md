@@ -2,7 +2,7 @@
 
 ## Purpose
 
-The `storage_service` package provides a unified interface for interacting with S3-compatible object storage (like AWS S3, MinIO), Azure Blob Storage via ABFS/ABFSS (adlfs), and local filesystem storage. It abstracts away the complexity of managing files across different storage backends, providing a consistent API for common operations.
+The `cledar.storage` package provides a unified interface for interacting with S3-compatible object storage (like AWS S3, MinIO), Azure Blob Storage via ABFS/ABFSS (adlfs), and local filesystem storage. It abstracts away the complexity of managing files across different storage backends, providing a consistent API for common operations.
 
 ### Key Features
 
@@ -39,7 +39,7 @@ pip install -e .
 ## Usage Example
 
 ```python
-from cledar.storage.object_storage import ObjectStorageService, ObjectStorageServiceConfig
+from cledar.storage import ObjectStorageService, ObjectStorageServiceConfig
 import io
 
 # Configure the service
@@ -90,7 +90,7 @@ service.delete_file(bucket="my-bucket", key="hello.txt")
 ### Project Structure
 
 ```
-storage_service/
+cledar/storage/
 ├── __init__.py              # Package initialization
 ├── exceptions.py            # Custom exceptions
 ├── object_storage.py        # Main service implementation
@@ -133,26 +133,26 @@ Once installed, run them from the SDK root directory:
 # From the SDK root directory
 cd /path/to/cledar-python-sdk
 
-# Run pylint on storage_service
-pylint storage_service/
+# Run pylint on storage
+pylint cledar/storage/
 
 # Run mypy type checking (strict mode configured)
-mypy storage_service/
+mypy cledar/storage/
 
 # Check code formatting with black
-black --check storage_service/
+black --check cledar/storage/
 
 # Auto-format code
-black storage_service/
+black cledar/storage/
 ```
 
 ### Run All Linters
 
 ```bash
 # Run all linters in sequence
-pylint storage_service/ && \
-mypy storage_service/ && \
-black --check storage_service/
+pylint cledar/storage/ && \
+mypy cledar/storage/ && \
+black --check cledar/storage/
 ```
 
 ### IDE Integration
@@ -173,31 +173,31 @@ Unit tests use mocks to test the code in isolation without requiring external de
 cd /path/to/cledar-python-sdk
 
 # Set PYTHONPATH and run unit tests
-PYTHONPATH=$PWD uv run pytest storage_service/tests/test_s3.py storage_service/tests/test_local.py -v
+PYTHONPATH=$PWD uv run pytest cledar/storage/tests/test_s3.py cledar/storage/tests/test_local.py -v
 ```
 
 ### Run Specific Test File
 
 ```bash
 # Run S3 unit tests
-PYTHONPATH=$PWD uv run pytest storage_service/tests/test_s3.py -v
+PYTHONPATH=$PWD uv run pytest cledar/storage/tests/test_s3.py -v
 
 # Run local filesystem unit tests
-PYTHONPATH=$PWD uv run pytest storage_service/tests/test_local.py -v
+PYTHONPATH=$PWD uv run pytest cledar/storage/tests/test_local.py -v
 ```
 
 ### Run Specific Test
 
 ```bash
 # Run a specific test by name
-PYTHONPATH=$PWD uv run pytest storage_service/tests/test_s3.py::test_upload_file_filesystem_with_bucket_key_should_use_s3 -v
+PYTHONPATH=$PWD uv run pytest cledar/storage/tests/test_s3.py::test_upload_file_filesystem_with_bucket_key_should_use_s3 -v
 ```
 
 ### Run with Coverage
 
 ```bash
 # Generate coverage report
-PYTHONPATH=$PWD uv run pytest storage_service/tests/test_s3.py storage_service/tests/test_local.py \
+PYTHONPATH=$PWD uv run pytest cledar/storage/tests/test_s3.py cledar/storage/tests/test_local.py \
   --cov=storage_service \
   --cov-report=html \
   --cov-report=term
@@ -244,24 +244,24 @@ Integration tests use [testcontainers](https://testcontainers-python.readthedocs
 cd /path/to/cledar-python-sdk
 
 # Set PYTHONPATH and run integration tests
-PYTHONPATH=$PWD uv run pytest storage_service/tests/test_integration_s3.py -v
+PYTHONPATH=$PWD uv run pytest cledar/storage/tests/test_integration_s3.py -v
 ```
 
 ### Run Specific Integration Test Class
 
 ```bash
 # Run only basic operations tests
-PYTHONPATH=$PWD uv run pytest storage_service/tests/test_integration_s3.py::TestIntegrationBasicOperations -v
+PYTHONPATH=$PWD uv run pytest cledar/storage/tests/test_integration_s3.py::TestIntegrationBasicOperations -v
 
 # Run only file operations tests
-PYTHONPATH=$PWD uv run pytest storage_service/tests/test_integration_s3.py::TestIntegrationFileOperations -v
+PYTHONPATH=$PWD uv run pytest cledar/storage/tests/test_integration_s3.py::TestIntegrationFileOperations -v
 ```
 
 ### Run with Detailed Output
 
 ```bash
 # Show container startup logs
-PYTHONPATH=$PWD uv run pytest storage_service/tests/test_integration_s3.py -v -s --log-cli-level=INFO
+PYTHONPATH=$PWD uv run pytest cledar/storage/tests/test_integration_s3.py -v -s --log-cli-level=INFO
 ```
 
 ### Integration Test Details
@@ -352,10 +352,10 @@ PYTHONPATH=$PWD uv run pytest storage_service/tests/test_integration_s3.py -v -s
 
 ```bash
 # Run everything
-PYTHONPATH=$PWD uv run pytest storage_service/tests/ -v
+PYTHONPATH=$PWD uv run pytest cledar/storage/tests/ -v
 
 # Run with coverage
-PYTHONPATH=$PWD uv run pytest storage_service/tests/ \
+PYTHONPATH=$PWD uv run pytest cledar/storage/tests/ \
   --cov=storage_service \
   --cov-report=html \
   --cov-report=term \
@@ -385,7 +385,7 @@ test-unit:
   script:
     - pip install uv
     - uv sync --all-groups
-    - PYTHONPATH=$PWD uv run pytest storage_service/tests/test_s3.py storage_service/tests/test_local.py -v
+    - PYTHONPATH=$PWD uv run pytest cledar/storage/tests/test_s3.py cledar/storage/tests/test_local.py -v
 
 test-integration:
   stage: test
@@ -398,7 +398,7 @@ test-integration:
   script:
     - pip install uv
     - uv sync --all-groups
-    - PYTHONPATH=$PWD uv run pytest storage_service/tests/test_integration_s3.py -v
+    - PYTHONPATH=$PWD uv run pytest cledar/storage/tests/test_integration_s3.py -v
 ```
 
 ### GitHub Actions Example
@@ -420,7 +420,7 @@ jobs:
           pip install uv
           uv sync --all-groups
       - name: Run unit tests
-        run: PYTHONPATH=$PWD uv run pytest storage_service/tests/test_s3.py storage_service/tests/test_local.py -v
+        run: PYTHONPATH=$PWD uv run pytest cledar/storage/tests/test_s3.py cledar/storage/tests/test_local.py -v
 
   integration-tests:
     runs-on: ubuntu-latest
@@ -434,7 +434,7 @@ jobs:
           pip install uv
           uv sync --all-groups
       - name: Run integration tests
-        run: PYTHONPATH=$PWD uv run pytest storage_service/tests/test_integration_s3.py -v
+        run: PYTHONPATH=$PWD uv run pytest cledar/storage/tests/test_integration_s3.py -v
 ```
 
 ## API Reference
@@ -507,16 +507,16 @@ content = service.read_file(path="abfs://container/path/to/file.txt")
 
 ```bash
 # Format code
-uv run black storage_service/
+uv run black cledar/storage/
 
 # Check types
-uv run mypy storage_service/
+uv run mypy cledar/storage/
 
 # Run linter
-uv run pylint storage_service/
+uv run pylint cledar/storage/
 
 # Run all tests
-PYTHONPATH=$PWD uv run pytest storage_service/tests/ -v
+PYTHONPATH=$PWD uv run pytest cledar/storage/tests/ -v
 ```
 
 ## License

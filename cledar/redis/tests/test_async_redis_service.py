@@ -10,7 +10,7 @@ import pytest
 import redis.asyncio as aioredis
 from pydantic import BaseModel
 
-from cledar.redis.redis import AsyncRedisService, FailedValue, RedisServiceConfig
+from cledar.redis import AsyncRedisService, FailedValue, RedisServiceConfig
 
 
 class UserModel(BaseModel):
