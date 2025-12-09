@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v2.0.2 (2025-12-09)
+
+### Bug Fixes
+
+- **CPL-302**: Include init
+  ([`6eb529d`](https://github.com/Cledar/cledar-python-sdk/commit/6eb529d844701fa2951ec0f382c9e1d7a99ee161))
+
+
 ## v2.0.1 (2025-12-09)
 
 ### Bug Fixes
