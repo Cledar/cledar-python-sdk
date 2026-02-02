@@ -1,3 +1,9 @@
+"""Custom logging formatter for plaintext output with extra attributes.
+
+This module provides the UniversalPlaintextFormatter class which allows
+for easy logging of extra attributes in a human-readable format.
+"""
+
 import configparser
 import logging
 from typing import Any
