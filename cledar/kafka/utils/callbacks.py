@@ -11,6 +11,7 @@ def delivery_callback(error: KafkaError, msg: Message) -> None:
     Args:
         error: The delivery error (if any).
         msg: The message that was delivered (or failed).
+
     """
     try:
         if msg is None:
