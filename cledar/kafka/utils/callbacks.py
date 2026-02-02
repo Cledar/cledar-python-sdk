@@ -1,9 +1,17 @@
+"""Kafka callback utilities."""
+
 from confluent_kafka import KafkaError, Message
 
 from ..logger import logger
 
 
 def delivery_callback(error: KafkaError, msg: Message) -> None:
+    """Callback for message delivery reports.
+
+    Args:
+        error: The delivery error (if any).
+        msg: The message that was delivered (or failed).
+    """
     try:
         if msg is None:
             logger.warning("Callback received a None message.")

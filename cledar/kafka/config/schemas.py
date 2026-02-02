@@ -1,3 +1,5 @@
+"""Configuration schemas for Kafka clients."""
+
 from enum import Enum
 
 from pydantic import field_validator
@@ -70,6 +72,7 @@ class KafkaProducerConfig:
     @field_validator("kafka_servers")
     @classmethod
     def validate_kafka_servers(cls, v: list[str] | str) -> list[str] | str:
+        """Validate kafka_servers field."""
         return _validate_kafka_servers(v)
 
     @field_validator(
@@ -79,6 +82,7 @@ class KafkaProducerConfig:
     )
     @classmethod
     def validate_positive_timeouts(cls, v: int) -> int:
+        """Validate positive timeout values."""
         return _validate_non_negative(v)
 
     def to_kafka_config(self) -> dict[str, list[str] | str | None]:
@@ -135,11 +139,13 @@ class KafkaConsumerConfig:
     @field_validator("kafka_servers")
     @classmethod
     def validate_kafka_servers(cls, v: list[str] | str) -> list[str] | str:
+        """Validate kafka_servers field."""
         return _validate_kafka_servers(v)
 
     @field_validator("kafka_offset")
     @classmethod
     def validate_kafka_offset(cls, v: str) -> str:
+        """Validate kafka_offset field."""
         if v.strip() == "":
             raise ValueError("kafka_offset cannot be empty")
         return v
@@ -152,6 +158,7 @@ class KafkaConsumerConfig:
     )
     @classmethod
     def validate_positive_timeouts(cls, v: int) -> int:
+        """Validate positive timeout values."""
         return _validate_non_negative(v)
 
     def to_kafka_config(self) -> dict[str, int | list[str] | str]:

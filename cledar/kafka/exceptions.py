@@ -1,22 +1,17 @@
+"""Kafka-related exceptions for the Cledar SDK."""
+
+
 class KafkaProducerNotConnectedError(Exception):
-    """
-    Custom exception for KafkaProducer to indicate it is not connected.
-    """
+    """Custom exception for KafkaProducer to indicate it is not connected."""
 
 
 class KafkaConsumerNotConnectedError(Exception):
-    """
-    Custom exception for KafkaConsumer to indicate it is not connected.
-    """
+    """Custom exception for KafkaConsumer to indicate it is not connected."""
 
 
 class KafkaConnectionError(Exception):
-    """
-    Custom exception to indicate connection failures.
-    """
+    """Custom exception to indicate connection failures."""
 
 
 class KafkaConsumerError(Exception):
-    """
-    Custom exception for KafkaConsumer to indicate errors.
-    """
+    """Custom exception for KafkaConsumer to indicate errors."""

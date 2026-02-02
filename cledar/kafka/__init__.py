@@ -1,3 +1,5 @@
+"""Kafka client and utilities for Cledar SDK."""
+
 from .clients.base import BaseKafkaClient
 from .clients.consumer import KafkaConsumer
 from .clients.producer import KafkaProducer

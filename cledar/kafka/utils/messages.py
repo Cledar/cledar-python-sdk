@@ -1,3 +1,5 @@
+"""Kafka message utilities."""
+
 import json
 
 from ..logger import logger
@@ -7,6 +9,14 @@ _ID_FIELD_KEY = "id"
 
 
 def extract_id_from_value(value: str | None) -> str:
+    """Extract an ID field from a JSON-formatted message value.
+
+    Args:
+        value: The message value string.
+
+    Returns:
+        str: The extracted ID or a placeholder if not found or invalid.
+    """
     msg_id: str = _UNKNOWN_ID_PLACEHOLDER
     if value is None:
         return msg_id
