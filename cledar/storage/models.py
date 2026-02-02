@@ -15,6 +15,7 @@ class ObjectStorageServiceConfig(BaseModel):
         s3_max_concurrency: Maximum number of concurrent S3 operations.
         azure_account_name: Azure storage account name.
         azure_account_key: Azure storage account key.
+
     """
 
     # s3 configuration
@@ -33,6 +34,7 @@ class TransferPath(BaseModel):
     Attributes:
         backend: Storage backend type (s3, abfs, or local).
         path: Full path to the file or object.
+
     """
 
     backend: Literal["s3", "abfs", "local"]

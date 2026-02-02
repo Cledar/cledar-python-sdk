@@ -10,5 +10,6 @@ def build_topic(topic_name: str, prefix: str | None) -> str:
 
     Returns:
         str: The full topic name.
+
     """
     return prefix + topic_name if prefix else topic_name

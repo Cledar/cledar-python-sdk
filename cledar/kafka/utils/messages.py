@@ -16,6 +16,7 @@ def extract_id_from_value(value: str | None) -> str:
 
     Returns:
         str: The extracted ID or a placeholder if not found or invalid.
+
     """
     msg_id: str = _UNKNOWN_ID_PLACEHOLDER
     if value is None:

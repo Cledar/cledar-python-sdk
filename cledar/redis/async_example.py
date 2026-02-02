@@ -1,5 +1,4 @@
-"""
-Example usage of AsyncRedisService with async/await.
+"""Example usage of AsyncRedisService with async/await.
 
 This example demonstrates:
 - Connecting to Redis asynchronously

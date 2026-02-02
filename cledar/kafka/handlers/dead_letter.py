@@ -17,6 +17,7 @@ class DeadLetterHandler:
         Args:
             producer: KafkaProducer instance.
             dlq_topic: The name of the DLQ Kafka topic.
+
         """
         self.producer: KafkaProducer = producer
         self.dlq_topic: str = dlq_topic
@@ -31,6 +32,7 @@ class DeadLetterHandler:
         Args:
             message: The original Kafka message.
             failures_details: A list of FailedMessageData.
+
         """
         logger.info("Handling message for DLQ.")
 
@@ -50,6 +52,7 @@ class DeadLetterHandler:
 
         Returns:
             list[tuple[str, bytes]]: A list of Kafka headers.
+
         """
         headers: list[tuple[str, bytes]] = []
 
@@ -73,6 +76,7 @@ class DeadLetterHandler:
             message: The DLQ message payload.
             key: The original Kafka message key.
             headers: Kafka headers containing exception details.
+
         """
         self.producer.send(
             topic=self.dlq_topic, value=message, key=key, headers=headers

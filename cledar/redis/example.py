@@ -28,6 +28,7 @@ class ConfigProvider:
 
         Args:
             redis_config_store: The Redis config store instance.
+
         """
         self.redis_config_store = redis_config_store
         if self.redis_config_store.fetch(ExampleConfig, CONFIG_KEY) is None:
@@ -38,6 +39,7 @@ class ConfigProvider:
 
         Returns:
             ExampleConfig: The current configuration.
+
         """
         return (
             self.redis_config_store.fetch(ExampleConfig, CONFIG_KEY) or DEFAULT_CONFIG
@@ -48,6 +50,7 @@ class ConfigProvider:
 
         Returns:
             int: The configuration version.
+
         """
         return self.redis_config_store.cached_version(CONFIG_KEY) or -1
 
@@ -56,6 +59,7 @@ class ConfigProvider:
 
         Args:
             config: The new configuration to set.
+
         """
         if config is None:
             return

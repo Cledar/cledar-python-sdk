@@ -28,6 +28,7 @@ class InputParser[Payload: BaseModel]:
 
         Args:
             model: The Pydantic model to validate messages against.
+
         """
         self.model: type[Payload] = model
 
@@ -45,6 +46,7 @@ class InputParser[Payload: BaseModel]:
 
         Raises:
             IncorrectMessageValueError: If the JSON is invalid.
+
         """
         try:
             data = json.loads(json_str)
@@ -64,6 +66,7 @@ class InputParser[Payload: BaseModel]:
 
         Raises:
             IncorrectMessageValueError: If message value is missing but required.
+
         """
         if message.value is None and self.model is not None:
             raise IncorrectMessageValueError

@@ -46,6 +46,7 @@ class KafkaConsumer(BaseKafkaClient):
         Raises:
             KafkaConsumerNotConnectedError: If the consumer is not connected.
             KafkaException: If subscription fails.
+
         """
         if self.client is None:
             logger.error(
@@ -84,6 +85,7 @@ class KafkaConsumer(BaseKafkaClient):
             KafkaConsumerNotConnectedError: If the consumer is not connected.
             KafkaConsumerError: If a consumer error occurs.
             KafkaException: If polling fails.
+
         """
         if self.client is None:
             logger.error(consumer_not_connected_msg)
@@ -131,6 +133,7 @@ class KafkaConsumer(BaseKafkaClient):
         Raises:
             KafkaConsumerNotConnectedError: If the consumer is not connected.
             KafkaException: If commit fails.
+
         """
         if self.client is None:
             logger.error(consumer_not_connected_msg)

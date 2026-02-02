@@ -41,6 +41,7 @@ class RedisConfigStore:
         Args:
             redis: An initialized Redis client.
             prefix: Optional prefix for keys stored in Redis.
+
         """
         self._redis: Redis = redis
         self._pubsub = redis.pubsub()  # type: ignore
@@ -59,6 +60,7 @@ class RedisConfigStore:
 
         Returns:
             bool: True if Redis responds to ping, False otherwise.
+
         """
         try:
             return self._redis.ping()  # type: ignore
@@ -73,6 +75,7 @@ class RedisConfigStore:
 
         Returns:
             int | None: The version of the key.
+
         """
         return self._key_versions(key)
 
@@ -84,6 +87,7 @@ class RedisConfigStore:
 
         Returns:
             int | None: The cached version of the key.
+
         """
         return self._cache_verisons.get(key)
 
@@ -96,6 +100,7 @@ class RedisConfigStore:
 
         Returns:
             T | None: The configuration object, or None if not found.
+
         """
         if key not in self._cache:
             new_value = self._key_fetch(key)
@@ -112,6 +117,7 @@ class RedisConfigStore:
         Args:
             key: The key to update.
             value: The configuration object to store.
+
         """
         self._cache[key] = self._key_update(key, value)
         self._cache_verisons[key] = self._key_versions(key) or -1
@@ -122,6 +128,7 @@ class RedisConfigStore:
 
         Args:
             key: The key to delete.
+
         """
         if key in self._cache:
             del self._cache[key]
@@ -137,6 +144,7 @@ class RedisConfigStore:
         Args:
             key: The key to watch.
             callback: The callback function to execute on change.
+
         """
         self._key_watch(key, callback)
 
@@ -146,6 +154,7 @@ class RedisConfigStore:
         Args:
             key: The key to update.
             value: The value to set.
+
         """
         self.update(key, value)
 
@@ -154,6 +163,7 @@ class RedisConfigStore:
 
         Args:
             key: The key to delete.
+
         """
         self.delete(key)
 

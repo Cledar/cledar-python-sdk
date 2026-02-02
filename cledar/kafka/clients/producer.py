@@ -51,6 +51,7 @@ class KafkaProducer(BaseKafkaClient):
         Raises:
             KafkaProducerNotConnectedError: If the producer is not connected.
             KafkaException: If sending the message fails.
+
         """
         if self.client is None:
             logger.error(

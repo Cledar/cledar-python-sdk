@@ -1,5 +1,4 @@
-"""
-Simple nonce service for preventing duplicate request processing.
+"""Simple nonce service for preventing duplicate request processing.
 
 Uses Redis with TTL for automatic cleanup.
 """
@@ -15,6 +14,7 @@ class NonceService:
 
         Args:
             redis_client: The Redis client service used for storage.
+
         """
         self.redis_client = redis_client
         self.nonce_prefix = "nonce"
@@ -29,6 +29,7 @@ class NonceService:
 
         Returns:
             str: The formatted Redis key.
+
         """
         return f"{self.nonce_prefix}:{endpoint}:{nonce}"
 
@@ -44,6 +45,7 @@ class NonceService:
 
         Raises:
             RuntimeError: If the Redis client is not initialized.
+
         """
         nonce_key = self._get_nonce_key(nonce, endpoint)
 

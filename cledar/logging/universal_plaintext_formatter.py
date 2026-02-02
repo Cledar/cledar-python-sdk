@@ -25,6 +25,7 @@ class UniversalPlaintextFormatter(logging.Formatter):
         Args:
             *args: Variable length argument list for the parent class.
             **kwargs: Arbitrary keyword arguments for the parent class.
+
         """
         super().__init__(*args, **kwargs)
         self._standard_attrs: set[str] | None = None
@@ -35,6 +36,7 @@ class UniversalPlaintextFormatter(logging.Formatter):
 
         Returns:
             set[str]: A set of keys to exclude from log records.
+
         """
         try:
             config = configparser.ConfigParser()
@@ -54,6 +56,7 @@ class UniversalPlaintextFormatter(logging.Formatter):
 
         Returns:
             set[str]: A set of attribute names to exclude.
+
         """
         if self._standard_attrs is None:
             dummy_record = logging.LogRecord(
@@ -82,6 +85,7 @@ class UniversalPlaintextFormatter(logging.Formatter):
 
         Returns:
             str: The formatted log message with extra attributes appended.
+
         """
         base = super().format(record)
         extras = {

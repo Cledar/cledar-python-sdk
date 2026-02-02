@@ -41,6 +41,7 @@ class ObjectStorageService:
 
         Args:
             config: Configuration for S3 and Azure storage backends.
+
         """
         self.client = fsspec.filesystem(
             "s3",
@@ -72,6 +73,7 @@ class ObjectStorageService:
 
         Returns:
             bool: True if the path starts with s3:// prefix.
+
         """
         if path is None:
             return False
@@ -86,6 +88,7 @@ class ObjectStorageService:
 
         Returns:
             bool: True if the path starts with abfs:// or abfss:// prefix.
+
         """
         if path is None:
             return False
@@ -97,6 +100,7 @@ class ObjectStorageService:
 
         Returns:
             bool: True if the service is accessible, False otherwise.
+
         """
         try:
             self.client.ls(path="")
@@ -113,6 +117,7 @@ class ObjectStorageService:
             buffer: Buffer containing data to write.
             bucket: S3 bucket name.
             key: S3 object key.
+
         """
         buffer.seek(0)
         with self.client.open(
@@ -128,6 +133,7 @@ class ObjectStorageService:
         Args:
             buffer: Buffer containing data to write.
             destination_path: Full S3 path (e.g., s3://bucket/key).
+
         """
         buffer.seek(0)
         with self.client.open(path=destination_path, mode="wb") as fobj:
@@ -141,6 +147,7 @@ class ObjectStorageService:
         Args:
             buffer: Buffer containing data to write.
             destination_path: Full ABFS path (e.g., abfs://container/path).
+
         """
         buffer.seek(0)
         with self.azure_client.open(path=destination_path, mode="wb") as fobj:
@@ -154,6 +161,7 @@ class ObjectStorageService:
         Args:
             buffer: Buffer containing data to write.
             destination_path: Local filesystem path.
+
         """
         buffer.seek(0)
         with self.local_client.open(path=destination_path, mode="wb") as fobj:
@@ -168,6 +176,7 @@ class ObjectStorageService:
 
         Returns:
             bytes: File contents as bytes.
+
         """
         with self.client.open(
             path=f"{S3_PATH_PREFIX}{bucket}/{key}", mode="rb"
@@ -183,6 +192,7 @@ class ObjectStorageService:
 
         Returns:
             bytes: File contents as bytes.
+
         """
         with self.client.open(path=path, mode="rb") as fobj:
             data: bytes = fobj.read()
@@ -196,6 +206,7 @@ class ObjectStorageService:
 
         Returns:
             bytes: File contents as bytes.
+
         """
         with self.azure_client.open(path=path, mode="rb") as fobj:
             data: bytes = fobj.read()
@@ -209,6 +220,7 @@ class ObjectStorageService:
 
         Returns:
             bytes: File contents as bytes.
+
         """
         with self.local_client.open(path=path, mode="rb") as fobj:
             data: bytes = fobj.read()
@@ -221,6 +233,7 @@ class ObjectStorageService:
             fs: Filesystem client.
             lpath: Local file path.
             rpath: Remote file path.
+
         """
         fs.put(lpath=lpath, rpath=rpath)
 
@@ -231,6 +244,7 @@ class ObjectStorageService:
             fs: Filesystem client.
             src: Remote source path.
             dst: Local destination path.
+
         """
         fs.get(src, dst)
 
@@ -244,6 +258,7 @@ class ObjectStorageService:
 
         Returns:
             list[str]: List of file paths.
+
         """
         if recursive:
             return cast(list[str], fs.find(path))
@@ -258,6 +273,7 @@ class ObjectStorageService:
 
         Returns:
             list[str]: List of normalized keys without bucket prefix.
+
         """
         keys: list[str] = []
         for obj in objects:
@@ -277,6 +293,7 @@ class ObjectStorageService:
 
         Returns:
             int: File size in bytes.
+
         """
         return int(info.get("size", 0))
 
@@ -287,6 +304,7 @@ class ObjectStorageService:
             backend: Backend type (s3, abfs, local, or mixed).
             src: Source path.
             dst: Destination path.
+
         """
         if backend == "s3":
             self.client.copy(src, dst)
@@ -310,6 +328,7 @@ class ObjectStorageService:
             backend: Backend type (s3, abfs, local, or mixed).
             src: Source path.
             dst: Destination path.
+
         """
         if backend == "s3":
             self.client.move(src, dst)
@@ -340,6 +359,7 @@ class ObjectStorageService:
 
         Returns:
             Any: Filesystem client for the backend.
+
         """
         if backend == "s3":
             return self.client
@@ -362,6 +382,7 @@ class ObjectStorageService:
 
         Raises:
             ValueError: If neither path nor bucket+key are provided.
+
         """
         if bucket and key:
             return TransferPath(backend="s3", path=f"{S3_PATH_PREFIX}{bucket}/{key}")
@@ -388,6 +409,7 @@ class ObjectStorageService:
 
         Raises:
             ValueError: If neither destination_path nor bucket+key are provided.
+
         """
         if bucket and key:
             return TransferPath(backend="s3", path=f"{S3_PATH_PREFIX}{bucket}/{key}")
@@ -410,6 +432,7 @@ class ObjectStorageService:
 
         Raises:
             ValueError: If path is not provided.
+
         """
         if path and self._is_s3_path(path):
             return TransferPath(backend="s3", path=path)
@@ -428,6 +451,7 @@ class ObjectStorageService:
 
         Returns:
             bytes: File contents as bytes.
+
         """
         if backend == "s3":
             return self._read_from_s3_path(src_path)
@@ -447,6 +471,7 @@ class ObjectStorageService:
 
         Raises:
             RequiredBucketNotFoundError: If throw=True and bucket is not found.
+
         """
         try:
             self.client.ls(path=bucket)
@@ -481,6 +506,7 @@ class ObjectStorageService:
         Raises:
             UploadBufferError: If upload fails.
             ValueError: If neither destination_path nor bucket+key are provided.
+
         """
         try:
             if bucket and key:
@@ -551,6 +577,7 @@ class ObjectStorageService:
         Raises:
             ReadFileError: If read fails after all retries.
             NotImplementedError: If this should never be reached.
+
         """
         transfer_path: TransferPath = self._resolve_source_backend_and_path(
             bucket=bucket, key=key, path=path
@@ -603,6 +630,7 @@ class ObjectStorageService:
 
         Raises:
             UploadFileError: If upload fails.
+
         """
         try:
             transfer_path: TransferPath = self._resolve_dest_backend_and_path(
@@ -664,6 +692,7 @@ class ObjectStorageService:
         Raises:
             ListObjectsError: If listing objects fails.
             ValueError: If neither path nor bucket are provided.
+
         """
         try:
             if path:
@@ -740,6 +769,7 @@ class ObjectStorageService:
         Raises:
             DeleteFileError: If deleting the file fails.
             ValueError: If neither path nor bucket+key are provided.
+
         """
         try:
             if bucket and key:
@@ -798,6 +828,7 @@ class ObjectStorageService:
         Raises:
             CheckFileExistenceError: If checking file existence fails.
             ValueError: If neither path nor bucket+key are provided.
+
         """
         try:
             if bucket and key:
@@ -859,6 +890,7 @@ class ObjectStorageService:
 
         Raises:
             DownloadFileError: If download fails after all retries.
+
         """
         transfer_path: TransferPath = self._resolve_source_backend_and_path(
             bucket=bucket, key=key, path=source_path
@@ -924,6 +956,7 @@ class ObjectStorageService:
         Raises:
             GetFileSizeError: If getting file size fails.
             ValueError: If neither path nor bucket+key are provided.
+
         """
         try:
             if bucket and key:
@@ -1003,6 +1036,7 @@ class ObjectStorageService:
         Raises:
             GetFileInfoError: If getting file info fails.
             ValueError: If neither path nor bucket+key are provided.
+
         """
         try:
             if bucket and key:
@@ -1086,6 +1120,7 @@ class ObjectStorageService:
 
         Raises:
             ValueError: If source or destination parameters are missing.
+
         """
         src_is_s3 = False
         src_is_abfs = False
@@ -1155,6 +1190,7 @@ class ObjectStorageService:
 
         Raises:
             CopyFileError: If copying the file fails.
+
         """
         try:
             src, dst, backend = self._resolve_transfer_paths(
@@ -1206,6 +1242,7 @@ class ObjectStorageService:
 
         Raises:
             MoveFileError: If moving the file fails.
+
         """
         try:
             src, dst, backend = self._resolve_transfer_paths(

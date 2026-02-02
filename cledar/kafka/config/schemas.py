@@ -54,6 +54,7 @@ class KafkaProducerConfig:
         kafka_partitioner: Partitioning strategy for messages
         compression_type: Compression type for messages (gzip, snappy, lz4, zstd,
             or None)
+
     """
 
     kafka_servers: list[str] | str
@@ -121,6 +122,7 @@ class KafkaConsumerConfig:
         kafka_connection_check_timeout_sec: Timeout for connection health checks
         kafka_auto_commit_interval_ms: Interval for automatic offset commits
         kafka_connection_check_interval_sec: Interval between connection checks
+
     """
 
     kafka_servers: list[str] | str

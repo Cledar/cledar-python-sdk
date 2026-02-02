@@ -62,6 +62,7 @@ class BaseKafkaClient:
 
         Returns:
             bool: True if connected, False otherwise.
+
         """
         try:
             self.check_connection()
@@ -85,6 +86,7 @@ class BaseKafkaClient:
             KafkaProducerNotConnectedError: If the producer is not initialized.
             KafkaConsumerNotConnectedError: If the consumer is not initialized.
             KafkaConnectionError: If connection to Kafka fails.
+
         """
         if self.client is None:
             logger.error(

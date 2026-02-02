@@ -32,6 +32,7 @@ class CustomEncoder(json.JSONEncoder):
 
         Returns:
             Any: The encoded object.
+
         """
         if isinstance(o, Enum):
             return o.name.lower()
@@ -69,6 +70,7 @@ class RedisService:
 
         Args:
             config: The service configuration.
+
         """
         self.config = config
         self._client: redis.Redis
@@ -106,6 +108,7 @@ class RedisService:
 
         Returns:
             bool: True if connection is alive, False otherwise.
+
         """
         try:
             return bool(self._client.ping())
@@ -127,6 +130,7 @@ class RedisService:
 
         Returns:
             Any: The processed value.
+
         """
         if isinstance(value, BaseModel):
             return value.model_dump()
@@ -151,6 +155,7 @@ class RedisService:
             RedisSerializationError: If serialization fails.
             RedisConnectionError: If connection fails.
             RedisOperationError: If operation fails.
+
         """
         if not isinstance(key, str):
             raise ValueError(f"Key must be a string, got {type(key)}")
@@ -200,6 +205,7 @@ class RedisService:
             RedisDeserializationError: If decoding or validation fails.
             RedisConnectionError: If connection fails.
             RedisOperationError: If operation fails.
+
         """
         if not isinstance(key, str):
             raise ValueError(f"Key must be a string, got {type(key)}")
@@ -249,6 +255,7 @@ class RedisService:
             ValueError: If the key is not a string.
             RedisConnectionError: If connection fails.
             RedisOperationError: If operation fails.
+
         """
         if not isinstance(key, str):
             raise ValueError(f"Key must be a string, got {type(key)}")
@@ -282,6 +289,7 @@ class RedisService:
             ValueError: If the pattern is not a string.
             RedisConnectionError: If connection fails.
             RedisOperationError: If operation fails.
+
         """
         if not isinstance(pattern, str):
             raise ValueError(f"Pattern must be a string, got {type(pattern)}")
@@ -317,6 +325,7 @@ class RedisService:
             ValueError: If the keys is not a list.
             RedisConnectionError: If connection fails.
             RedisOperationError: If operation fails.
+
         """
         if not isinstance(keys, list):
             raise ValueError(f"Keys must be a list, got {type(keys)}")
@@ -375,6 +384,7 @@ class RedisService:
             ValueError: If the key is not a string.
             RedisConnectionError: If connection fails.
             RedisOperationError: If operation fails.
+
         """
         if not isinstance(key, str):
             raise ValueError(f"Key must be a string, got {type(key)}")
@@ -403,6 +413,7 @@ class AsyncRedisService:
 
         Args:
             config: The service configuration.
+
         """
         self.config = config
         self._client: aioredis.Redis
@@ -461,6 +472,7 @@ class AsyncRedisService:
 
         Returns:
             Any: The processed value.
+
         """
         if isinstance(value, BaseModel):
             return value.model_dump()

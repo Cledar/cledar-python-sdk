@@ -35,6 +35,7 @@ class MonitoringServerConfig:
     Args:
         readiness_checks: A dictionary of name to callable for readiness checks.
         liveness_checks: An optional dictionary for liveness checks.
+
     """
 
     readiness_checks: dict[str, Callable[[], bool]]
@@ -49,6 +50,7 @@ class EndpointFilter(logging.Filter):
 
         Args:
             paths_excluded_for_logging: List of paths to exclude from logs.
+
         """
         super().__init__()
         self.paths_excluded_for_logging = paths_excluded_for_logging
@@ -61,6 +63,7 @@ class EndpointFilter(logging.Filter):
 
         Returns:
             bool: True if record should be logged, False otherwise.
+
         """
         return not any(
             path in record.getMessage() for path in self.paths_excluded_for_logging
@@ -84,6 +87,7 @@ class MonitoringServer:
             host: The host to bind the server to.
             port: The port to bind the server to.
             config: The server configuration.
+
         """
         self.config = config
         self.host = host
@@ -97,6 +101,7 @@ class MonitoringServer:
 
         Args:
             app: The FastAPI application to add routes to.
+
         """
 
         @app.get("/metrics")
