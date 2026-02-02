@@ -1,3 +1,5 @@
+"""Utilities for KServe integration and CloudEvents processing."""
+
 CE_SOURCE_HEADER = "ce-source"
 
 
