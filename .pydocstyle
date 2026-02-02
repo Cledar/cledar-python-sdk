@@ -5,5 +5,5 @@ convention = google
 # Add directories to check
 match-dir = ^(?!tests|\.)[^\.].*
 
-# Ignore specific rules if needed
-# add-ignore = D100,D104
+# Ignore D212 (we use D213 - summary on first line, which is Google style)
+add-ignore = D212

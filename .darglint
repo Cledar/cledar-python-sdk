@@ -5,5 +5,5 @@ docstring_style = google
 # Strictness level (short, long, full)
 strictness = short
 
-# Enable specific checks
-enable = DAR104
+# Ignore DAR104 (parameter types - already in function signature)
+ignore = DAR104

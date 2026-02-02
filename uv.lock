@@ -465,7 +465,7 @@ wheels = [
 
 [[package]]
 name = "cledar-sdk"
-version = "2.0.0"
+version = "2.0.3"
 source = { editable = "." }
 dependencies = [
     { name = "adlfs" },
