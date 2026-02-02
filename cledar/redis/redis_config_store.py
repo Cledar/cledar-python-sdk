@@ -21,7 +21,10 @@ OP_EVENT_FORMAT = "__keyevent@{DB}__:{OPERATION}"
 
 
 class RedisConfigStore:
-    """Store for configuration objects in Redis with local caching and pub/sub updates."""
+    """Store for configuration objects in Redis with local caching and pub/sub.
+
+    Provides updates on configuration changes.
+    """
 
     TYPE_NONE = "none"
     TYPE_LIST = "list"

@@ -997,7 +997,8 @@ class ObjectStorageService:
             path: The filesystem path. Uses S3 if starts with s3://, otherwise local
 
         Returns:
-            dict[str, Any]: Dictionary containing file metadata (size, modified time, etc.)
+            dict[str, Any]: Dictionary containing file metadata (size, modified
+                time, etc.)
 
         Raises:
             GetFileInfoError: If getting file info fails.
@@ -1080,7 +1081,8 @@ class ObjectStorageService:
             dest_path: Full destination path (can be S3, ABFS, or local).
 
         Returns:
-            tuple[str, str, str]: Tuple of (source_path, destination_path, backend_type).
+            tuple[str, str, str]: Tuple of (source_path, destination_path,
+                backend_type).
 
         Raises:
             ValueError: If source or destination parameters are missing.

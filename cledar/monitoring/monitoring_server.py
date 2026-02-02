@@ -98,6 +98,7 @@ class MonitoringServer:
         Args:
             app: The FastAPI application to add routes to.
         """
+
         @app.get("/metrics")
         async def get_metrics() -> Response:
             return Response(

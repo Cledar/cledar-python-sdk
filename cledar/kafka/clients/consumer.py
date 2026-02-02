@@ -77,7 +77,8 @@ class KafkaConsumer(BaseKafkaClient):
         """Consume the next message from subscribed topics.
 
         Returns:
-            KafkaMessage | None: The consumed message or None if no message is available.
+            KafkaMessage | None: The consumed message or None if no message is
+                available.
 
         Raises:
             KafkaConsumerNotConnectedError: If the consumer is not connected.
