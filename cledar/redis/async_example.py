@@ -16,6 +16,8 @@ from cledar.redis import AsyncRedisService, RedisServiceConfig
 
 
 class UserModel(BaseModel):
+    """Simple user model for demonstration."""
+
     user_id: int
     name: str
     email: str

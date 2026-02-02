@@ -1,3 +1,6 @@
+"""Redis-related exceptions for the Cledar SDK."""
+
+
 class RedisServiceError(Exception):
     """Base exception for RedisService errors."""
 
