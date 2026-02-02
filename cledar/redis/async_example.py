@@ -23,7 +23,7 @@ class UserModel(BaseModel):
 
 
 async def basic_usage_example() -> None:
-    """Basic async Redis operations."""
+    """Demonstrate basic async Redis operations."""
     print("=== Basic Async Usage ===")
 
     # Configure service

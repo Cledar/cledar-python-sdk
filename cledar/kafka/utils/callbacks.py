@@ -6,12 +6,11 @@ from ..logger import logger
 
 
 def delivery_callback(error: KafkaError, msg: Message) -> None:
-    """Callback for message delivery reports.
+    """Handle message delivery reports from Kafka producer.
 
     Args:
         error: The delivery error (if any).
         msg: The message that was delivered (or failed).
-
     """
     try:
         if msg is None:
