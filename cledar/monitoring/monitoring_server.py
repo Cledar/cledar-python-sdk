@@ -1,3 +1,5 @@
+"""Prometheus monitoring and health checks server implementation."""
+
 import json
 import logging
 import logging.config
@@ -28,22 +30,46 @@ def _run_monitoring_server(host: str, port: int, app: FastAPI) -> None:
 
 @dataclass
 class MonitoringServerConfig:
+    """Configuration for the MonitoringServer.
+
+    Args:
+        readiness_checks: A dictionary of name to callable for readiness checks.
+        liveness_checks: An optional dictionary for liveness checks.
+    """
+
     readiness_checks: dict[str, Callable[[], bool]]
     liveness_checks: dict[str, Callable[[], bool]] | None = None
 
 
 class EndpointFilter(logging.Filter):
+    """Filter for logging that excludes certain paths."""
+
     def __init__(self, paths_excluded_for_logging: list[str]):
+        """Initialize the EndpointFilter.
+
+        Args:
+            paths_excluded_for_logging: List of paths to exclude from logs.
+        """
         super().__init__()
         self.paths_excluded_for_logging = paths_excluded_for_logging
 
     def filter(self, record: logging.LogRecord) -> bool:
+        """Filter log records based on path exclusions.
+
+        Args:
+            record: The log record to check.
+
+        Returns:
+            bool: True if record should be logged, False otherwise.
+        """
         return not any(
             path in record.getMessage() for path in self.paths_excluded_for_logging
         )
 
 
 class MonitoringServer:
+    """A server that exposes Prometheus metrics and health check endpoints."""
+
     PATHS_EXCLUDED_FOR_LOGGING = ["/healthz/readiness", "/healthz/liveness"]
 
     def __init__(
@@ -52,6 +78,13 @@ class MonitoringServer:
         port: int,
         config: MonitoringServerConfig,
     ):
+        """Initialize the MonitoringServer.
+
+        Args:
+            host: The host to bind the server to.
+            port: The port to bind the server to.
+            config: The server configuration.
+        """
         self.config = config
         self.host = host
         self.port = port
@@ -60,6 +93,11 @@ class MonitoringServer:
         )
 
     def add_paths(self, app: FastAPI) -> None:
+        """Add monitoring and health check endpoints to the FastAPI application.
+
+        Args:
+            app: The FastAPI application to add routes to.
+        """
         @app.get("/metrics")
         async def get_metrics() -> Response:
             return Response(
@@ -101,6 +139,7 @@ class MonitoringServer:
             return Response(content=data_json, status_code=503)
 
     def start_monitoring_server(self) -> None:
+        """Start the monitoring server in a background thread."""
         local_app = _create_app()
         self.add_paths(local_app)
         server_thread = threading.Thread(
