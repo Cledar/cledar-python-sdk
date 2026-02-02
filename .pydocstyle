@@ -7,3 +7,6 @@ match-dir = ^(?!tests|\.)[^\.].*
 
 # Ignore D212 (we use D213 - summary on first line, which is Google style)
 add-ignore = D212
+
+# Ignore files with PEP 695 syntax (Python 3.12+ generics) - pydocstyle can't parse them
+match = (?!.*parser\.py$)(?!.*input\.py$).*\.py$

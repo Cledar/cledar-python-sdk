@@ -6,4 +6,6 @@ docstring_style = google
 strictness = short
 
 # Ignore DAR104 (parameter types - already in function signature)
-ignore = DAR104
+# Ignore DAR401/DAR402 (conditional raises detection issues)
+ignore = DAR104,DAR401,DAR402
+
