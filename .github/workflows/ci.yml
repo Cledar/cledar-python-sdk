@@ -87,7 +87,7 @@ jobs:
           uv sync --no-dev --frozen
           uv add pydocstyle darglint
       - name: Check docstrings (PR mode)
-        if: github.event_name == 'pull_request'
+        if: github.event_name != 'pull_request'
         run: |
           git fetch origin ${{ github.base_ref }}
           CHANGED_FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD | grep '\.py$' || true)
@@ -100,7 +100,7 @@ jobs:
             echo "No Python files changed"
           fi
       - name: Check docstrings (Full mode)
-        if: github.event_name != 'pull_request'
+        if: github.event_name == 'pull_request'
         run: |
           uv run pydocstyle cledar/
           find cledar/ -name "*.py" -exec uv run darglint {} \;
