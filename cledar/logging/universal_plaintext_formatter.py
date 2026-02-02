@@ -4,8 +4,7 @@ from typing import Any
 
 
 class UniversalPlaintextFormatter(logging.Formatter):
-    """
-    A custom formatter for logging that extends the standard logging.Formatter.
+    """A custom formatter for logging that extends the standard logging.Formatter.
 
     This formatter adds the ability to include extra attributes from log records while
     excluding standard attributes and configurable keys.
@@ -15,8 +14,7 @@ class UniversalPlaintextFormatter(logging.Formatter):
     DEFAULT_EXCLUDE_KEYS = {"message", "asctime"}
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
-        """
-        Initialize the formatter with standard formatter parameters.
+        """Initialize the formatter with standard formatter parameters.
 
         Args:
             *args: Variable length argument list for the parent class.
@@ -27,11 +25,10 @@ class UniversalPlaintextFormatter(logging.Formatter):
         self._config_exclude_keys = self._load_exclude_keys_from_config()
 
     def _load_exclude_keys_from_config(self) -> set[str]:
-        """
-        Load additional keys to exclude from the configuration file.
+        """Load additional keys to exclude from the configuration file.
 
         Returns:
-            set: A set of keys to exclude from log records.
+            set[str]: A set of keys to exclude from log records.
         """
         try:
             config = configparser.ConfigParser()
@@ -44,14 +41,13 @@ class UniversalPlaintextFormatter(logging.Formatter):
         return set()
 
     def _get_standard_attrs(self) -> set[str]:
-        """
-        Get the set of standard attributes to exclude from log records.
+        """Get the set of standard attributes to exclude from log records.
 
         This includes standard LogRecord attributes, predefined exclusions,
         and exclusions from configuration.
 
         Returns:
-            set: A set of attribute names to exclude.
+            set[str]: A set of attribute names to exclude.
         """
         if self._standard_attrs is None:
             dummy_record = logging.LogRecord(
@@ -73,8 +69,7 @@ class UniversalPlaintextFormatter(logging.Formatter):
         return self._standard_attrs
 
     def format(self, record: logging.LogRecord) -> str:
-        """
-        Format the log record, adding any extra attributes not in the standard set.
+        """Format the log record, adding any extra attributes not in the standard set.
 
         Args:
             record: The log record to format.
