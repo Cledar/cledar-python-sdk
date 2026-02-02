@@ -56,6 +56,11 @@ select = [
     "D",   # pydocstyle rules (docstrings)
 ]
 
+ignore = [
+    "D203",  # incorrect-blank-line-before-class: Conflicts with D211 (no blank line before class)
+    "D213",  # multi-line-summary-second-line: Conflicts with D212 (summary on first line)
+]
+
 [tool.ruff.format]
 quote-style = "double"
 
