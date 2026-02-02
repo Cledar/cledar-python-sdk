@@ -1,0 +1,9 @@
+[darglint]
+# Google docstring style
+docstring_style = google
+
+# Strictness level (short, long, full)
+strictness = short
+
+# Enable specific checks
+enable = DAR104

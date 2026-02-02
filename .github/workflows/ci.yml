@@ -70,11 +70,47 @@ jobs:
         run: uv run mypy .
 
   # -------------------------------------------------------
+  # Lint: Docstring Check (pydocstyle + darglint)
+  # -------------------------------------------------------
+  docstring-check:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12.7"
+      - name: Install tools
+        run: |
+          pip install uv
+          uv sync --no-dev --frozen
+          uv add pydocstyle darglint
+      - name: Check docstrings (PR mode)
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch origin ${{ github.base_ref }}
+          CHANGED_FILES=$(git diff --name-only origin/${{ github.base_ref }}...HEAD | grep '\.py$' || true)
+          if [ -n "$CHANGED_FILES" ]; then
+            echo "Checking changed files:"
+            echo "$CHANGED_FILES"
+            echo "$CHANGED_FILES" | xargs uv run pydocstyle
+            echo "$CHANGED_FILES" | xargs -I {} uv run darglint {}
+          else
+            echo "No Python files changed"
+          fi
+      - name: Check docstrings (Full mode)
+        if: github.event_name != 'pull_request'
+        run: |
+          uv run pydocstyle cledar/
+          find cledar/ -name "*.py" -exec uv run darglint {} \;
+
+  # -------------------------------------------------------
   # Test (using uv)
   # -------------------------------------------------------
   test:
     runs-on: self-hosted
-    needs: [ruff-format, ruff-check, mypy]
+    needs: [ruff-format, ruff-check, mypy, docstring-check]
     env:
       TESTCONTAINERS_HOST_OVERRIDE: host.docker.internal
     steps:

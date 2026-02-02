@@ -1,0 +1,9 @@
+[pydocstyle]
+# Google docstring convention
+convention = google
+
+# Add directories to check
+match-dir = ^(?!tests|\.)[^\.].*
+
+# Ignore specific rules if needed
+# add-ignore = D100,D104
