@@ -70,26 +70,11 @@ jobs:
         run: uv run mypy .
 
   # -------------------------------------------------------
-  # Lint: Darglint (docstring argument validation)
-  # -------------------------------------------------------
-  darglint-check:
-    runs-on: self-hosted
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12.7"
-
-      - name: Run Darglint (tool run)
-        run: |
-          find cledar/ -name "*.py" -not -path "*/tests/*" -exec uv tool run darglint {} \;
-
-  # -------------------------------------------------------
   # Test (using uv)
   # -------------------------------------------------------
   test:
     runs-on: self-hosted
-    needs: [ruff-format, ruff-check, mypy, darglint-check]
+    needs: [ruff-format, ruff-check, mypy]
     env:
       TESTCONTAINERS_HOST_OVERRIDE: host.docker.internal
     steps:

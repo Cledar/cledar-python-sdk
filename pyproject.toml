@@ -54,7 +54,9 @@ select = [
     "UP",  # pyupgrade
     "B",   # flake8-bugbear
     "D",   # pydocstyle rules (docstrings)
+    "DOC"  # pydoclint
 ]
+preview = true
 
 ignore = [
     "D203",  # incorrect-blank-line-before-class: Conflicts with D211 (no blank line before class)
