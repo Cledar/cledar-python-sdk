@@ -1107,15 +1107,12 @@ class ObjectStorageService:
         """Resolve source and destination paths for copy/move operations.
 
         Args:
+            source_bucket: Source S3 bucket name.
             source_key: Source S3 object key.
             source_path: Full source path (can be S3, ABFS, or local).
             dest_bucket: Destination S3 bucket name.
             dest_key: Destination S3 object key.
             dest_path: Full destination path (can be S3, ABFS, or local).
-
-        Returns:
-            tuple[str, str, str]: Tuple of (source_path, destination_path,
-                backend_type).
 
         Raises:
             ValueError: If source or destination parameters are missing.
