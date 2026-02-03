@@ -1107,7 +1107,6 @@ class ObjectStorageService:
         """Resolve source and destination paths for copy/move operations.
 
         Args:
-            source_bucket: Source S3 bucket name.
             source_key: Source S3 object key.
             source_path: Full source path (can be S3, ABFS, or local).
             dest_bucket: Destination S3 bucket name.
