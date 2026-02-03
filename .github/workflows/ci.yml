@@ -82,7 +82,6 @@ jobs:
       - name: Install uv + project deps (no dev)
         run: |
           pip install uv
-          uv sync --no-dev --frozen
 
       - name: Run Darglint (tool run)
         run: |
