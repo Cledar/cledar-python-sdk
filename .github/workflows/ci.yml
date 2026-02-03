@@ -79,9 +79,6 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12.7"
-      - name: Install uv + project deps (no dev)
-        run: |
-          pip install uv
 
       - name: Run Darglint (tool run)
         run: |
