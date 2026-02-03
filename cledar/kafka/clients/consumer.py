@@ -43,10 +43,6 @@ class KafkaConsumer(BaseKafkaClient):
         Args:
             topics: A list of topic names to subscribe to.
 
-        Raises:
-            KafkaConsumerNotConnectedError: If the consumer is not connected.
-            KafkaException: If subscription fails.
-
         """
         if self.client is None:
             logger.error(
@@ -80,11 +76,6 @@ class KafkaConsumer(BaseKafkaClient):
         Returns:
             KafkaMessage | None: The consumed message or None if no message is
                 available.
-
-        Raises:
-            KafkaConsumerNotConnectedError: If the consumer is not connected.
-            KafkaConsumerError: If a consumer error occurs.
-            KafkaException: If polling fails.
 
         """
         if self.client is None:
@@ -129,10 +120,6 @@ class KafkaConsumer(BaseKafkaClient):
 
         Args:
             message: The message for which to commit offsets.
-
-        Raises:
-            KafkaConsumerNotConnectedError: If the consumer is not connected.
-            KafkaException: If commit fails.
 
         """
         if self.client is None:

@@ -1,12 +1,12 @@
 """Configuration schemas for Kafka clients."""
 
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import field_validator
 from pydantic.dataclasses import dataclass
 
 
-class KafkaSecurityProtocol(str, Enum):
+class KafkaSecurityProtocol(StrEnum):
     """Supported Kafka security protocols."""
 
     PLAINTEXT = "PLAINTEXT"
@@ -15,7 +15,7 @@ class KafkaSecurityProtocol(str, Enum):
     SASL_SSL = "SASL_SSL"
 
 
-class KafkaSaslMechanism(str, Enum):
+class KafkaSaslMechanism(StrEnum):
     """Supported Kafka SASL mechanisms."""
 
     PLAIN = "PLAIN"
@@ -25,7 +25,18 @@ class KafkaSaslMechanism(str, Enum):
 
 
 def _validate_kafka_servers(v: list[str] | str) -> list[str] | str:
-    """Validate kafka_servers is not empty."""
+    """Validate kafka_servers is not empty.
+
+    Args:
+        v: List of Kafka broker addresses or a comma-separated string.
+
+    Returns:
+        list[str] | str: The validated value.
+
+    Raises:
+        ValueError: If the value is empty.
+
+    """
     if isinstance(v, str) and v.strip() == "":
         raise ValueError("kafka_servers cannot be empty")
     if isinstance(v, list) and len(v) == 0:
@@ -34,7 +45,18 @@ def _validate_kafka_servers(v: list[str] | str) -> list[str] | str:
 
 
 def _validate_non_negative(v: int) -> int:
-    """Validate that timeout values are non-negative."""
+    """Validate that timeout values are non-negative.
+
+    Args:
+        v: Timeout value to validate.
+
+    Returns:
+        int: The validated value.
+
+    Raises:
+        ValueError: If the value is negative.
+
+    """
     if v < 0:
         raise ValueError("timeout values must be non-negative")
     return v
@@ -73,7 +95,15 @@ class KafkaProducerConfig:
     @field_validator("kafka_servers")
     @classmethod
     def validate_kafka_servers(cls, v: list[str] | str) -> list[str] | str:
-        """Validate kafka_servers field."""
+        """Validate kafka_servers field.
+
+        Args:
+            v: List of Kafka broker addresses or a comma-separated string.
+
+        Returns:
+            list[str] | str: The validated value.
+
+        """
         return _validate_kafka_servers(v)
 
     @field_validator(
@@ -83,11 +113,24 @@ class KafkaProducerConfig:
     )
     @classmethod
     def validate_positive_timeouts(cls, v: int) -> int:
-        """Validate positive timeout values."""
+        """Validate positive timeout values.
+
+        Args:
+            v: Timeout value to validate.
+
+        Returns:
+            int: The validated value.
+
+        """
         return _validate_non_negative(v)
 
     def to_kafka_config(self) -> dict[str, list[str] | str | None]:
-        """Build Kafka producer configuration dictionary."""
+        """Build Kafka producer configuration dictionary.
+
+        Returns:
+            dict[str, list[str] | str | None]: Kafka client configuration.
+
+        """
         config = {
             "bootstrap.servers": self.kafka_servers,
             "client.id": self.kafka_group_id,
@@ -141,13 +184,32 @@ class KafkaConsumerConfig:
     @field_validator("kafka_servers")
     @classmethod
     def validate_kafka_servers(cls, v: list[str] | str) -> list[str] | str:
-        """Validate kafka_servers field."""
+        """Validate kafka_servers field.
+
+        Args:
+            v: List of Kafka broker addresses or a comma-separated string.
+
+        Returns:
+            list[str] | str: The validated value.
+
+        """
         return _validate_kafka_servers(v)
 
     @field_validator("kafka_offset")
     @classmethod
     def validate_kafka_offset(cls, v: str) -> str:
-        """Validate kafka_offset field."""
+        """Validate kafka_offset field.
+
+        Args:
+            v: Offset value to validate.
+
+        Returns:
+            str: The validated offset value.
+
+        Raises:
+            ValueError: If the value is empty.
+
+        """
         if v.strip() == "":
             raise ValueError("kafka_offset cannot be empty")
         return v
@@ -160,11 +222,24 @@ class KafkaConsumerConfig:
     )
     @classmethod
     def validate_positive_timeouts(cls, v: int) -> int:
-        """Validate positive timeout values."""
+        """Validate positive timeout values.
+
+        Args:
+            v: Timeout value to validate.
+
+        Returns:
+            int: The validated value.
+
+        """
         return _validate_non_negative(v)
 
     def to_kafka_config(self) -> dict[str, int | list[str] | str]:
-        """Build Kafka consumer configuration dictionary."""
+        """Build Kafka consumer configuration dictionary.
+
+        Returns:
+            dict[str, int | list[str] | str]: Kafka client configuration.
+
+        """
         config = {
             "bootstrap.servers": self.kafka_servers,
             "enable.auto.commit": False,

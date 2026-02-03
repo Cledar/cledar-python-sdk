@@ -2,7 +2,6 @@
 
 import json
 import logging
-import logging.config
 import threading
 from collections.abc import Callable
 

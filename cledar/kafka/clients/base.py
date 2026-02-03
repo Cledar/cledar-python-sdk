@@ -82,11 +82,6 @@ class BaseKafkaClient:
         Ref: https://github.com/confluentinc/confluent-kafka-python/issues/941
         The below is far-from-perfect workaround handling that.
 
-        Raises:
-            KafkaProducerNotConnectedError: If the producer is not initialized.
-            KafkaConsumerNotConnectedError: If the consumer is not initialized.
-            KafkaConnectionError: If connection to Kafka fails.
-
         """
         if self.client is None:
             logger.error(

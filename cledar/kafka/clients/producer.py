@@ -48,10 +48,6 @@ class KafkaProducer(BaseKafkaClient):
             key: The message key.
             headers: Optional list of message headers.
 
-        Raises:
-            KafkaProducerNotConnectedError: If the producer is not connected.
-            KafkaException: If sending the message fails.
-
         """
         if self.client is None:
             logger.error(
