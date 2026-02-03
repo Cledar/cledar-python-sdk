@@ -77,7 +77,12 @@ class RedisService:
         self.connect()
 
     def connect(self) -> None:
-        """Establish connection to Redis."""
+        """Establish a connection to Redis.
+
+        Raises:
+            RedisConnectionError: If the connection fails.
+
+        """
         try:
             self._client = redis.Redis(
                 host=self.config.redis_host,
@@ -153,8 +158,8 @@ class RedisService:
         Raises:
             ValueError: If the key is not a string.
             RedisSerializationError: If serialization fails.
-            RedisConnectionError: If connection fails.
-            RedisOperationError: If operation fails.
+            RedisConnectionError: If the connection fails.
+            RedisOperationError: If the operation fails.
 
         """
         if not isinstance(key, str):
@@ -203,8 +208,8 @@ class RedisService:
         Raises:
             ValueError: If the key is not a string.
             RedisDeserializationError: If decoding or validation fails.
-            RedisConnectionError: If connection fails.
-            RedisOperationError: If operation fails.
+            RedisConnectionError: If the connection fails.
+            RedisOperationError: If the operation fails.
 
         """
         if not isinstance(key, str):
@@ -253,8 +258,8 @@ class RedisService:
 
         Raises:
             ValueError: If the key is not a string.
-            RedisConnectionError: If connection fails.
-            RedisOperationError: If operation fails.
+            RedisConnectionError: If the connection fails.
+            RedisOperationError: If the operation fails.
 
         """
         if not isinstance(key, str):
@@ -287,8 +292,8 @@ class RedisService:
 
         Raises:
             ValueError: If the pattern is not a string.
-            RedisConnectionError: If connection fails.
-            RedisOperationError: If operation fails.
+            RedisConnectionError: If the connection fails.
+            RedisOperationError: If the operation fails.
 
         """
         if not isinstance(pattern, str):
@@ -322,9 +327,9 @@ class RedisService:
                 missing keys, or FailedValue for items that failed validation.
 
         Raises:
-            ValueError: If the keys is not a list.
-            RedisConnectionError: If connection fails.
-            RedisOperationError: If operation fails.
+            ValueError: If the keys are not a list.
+            RedisConnectionError: If the connection fails.
+            RedisOperationError: If the operation fails.
 
         """
         if not isinstance(keys, list):
@@ -378,12 +383,12 @@ class RedisService:
             key: The key to delete.
 
         Returns:
-            bool: True if key was deleted, False otherwise.
+            bool: True if the key was deleted, False otherwise.
 
         Raises:
             ValueError: If the key is not a string.
-            RedisConnectionError: If connection fails.
-            RedisOperationError: If operation fails.
+            RedisConnectionError: If the connection fails.
+            RedisOperationError: If the operation fails.
 
         """
         if not isinstance(key, str):
@@ -419,7 +424,12 @@ class AsyncRedisService:
         self._client: aioredis.Redis
 
     async def connect(self) -> None:
-        """Establish connection to Redis asynchronously."""
+        """Establish connection to Redis asynchronously.
+
+        Raises:
+            RedisConnectionError: If the connection fails.
+
+        """
         try:
             self._client = aioredis.Redis(
                 host=self.config.redis_host,
@@ -451,7 +461,12 @@ class AsyncRedisService:
         logger.info("Async Redis client closed.")
 
     async def is_alive(self) -> bool:
-        """Check if Redis connection is alive."""
+        """Check if Redis connection is alive.
+
+        Returns:
+            bool: True if the connection is alive, False otherwise.
+
+        """
         try:
             return bool(await self._client.ping())
         except aioredis.ConnectionError:
@@ -483,7 +498,22 @@ class AsyncRedisService:
         return value
 
     async def set(self, key: str, value: Any) -> bool:
-        """Set a key-value pair in Redis."""
+        """Set a key-value pair in Redis.
+
+        Args:
+            key: The key to set.
+            value: The value to set.
+
+        Returns:
+            bool: True if successful, False otherwise.
+
+        Raises:
+            ValueError: If the key is not a string.
+            RedisSerializationError: If serialization fails.
+            RedisConnectionError: If the connection fails.
+            RedisOperationError: If the operation fails.
+
+        """
         if not isinstance(key, str):
             raise ValueError(f"Key must be a string, got {type(key)}")
         if value is None:
@@ -518,7 +548,22 @@ class AsyncRedisService:
             raise RedisOperationError(f"Failed to set key '{key}'") from exc
 
     async def get(self, key: str, model: type[T]) -> T | None:
-        """Get a value from Redis and validate it against a Pydantic model."""
+        """Get a value from Redis and validate it against a Pydantic model.
+
+        Args:
+            key: The key to fetch.
+            model: The Pydantic model to validate against.
+
+        Returns:
+            T | None: The validated model or None if key does not exist.
+
+        Raises:
+            ValueError: If the key is not a string.
+            RedisDeserializationError: If decoding or validation fails.
+            RedisConnectionError: If the connection fails.
+            RedisOperationError: If the operation fails.
+
+        """
         if not isinstance(key, str):
             raise ValueError(f"Key must be a string, got {type(key)}")
 
@@ -555,7 +600,20 @@ class AsyncRedisService:
             raise RedisOperationError(f"Failed to get key '{key}'") from exc
 
     async def get_raw(self, key: str) -> Any | None:
-        """Get a raw value from Redis without deserialization."""
+        """Get a raw value from Redis without deserialization.
+
+        Args:
+            key: The key to fetch.
+
+        Returns:
+            Any | None: The raw value or None if key does not exist.
+
+        Raises:
+            ValueError: If the key is not a string.
+            RedisConnectionError: If the connection fails.
+            RedisOperationError: If the operation fails.
+
+        """
         if not isinstance(key, str):
             raise ValueError(f"Key must be a string, got {type(key)}")
 
@@ -576,7 +634,20 @@ class AsyncRedisService:
             raise RedisOperationError(f"Failed to get key '{key}'") from exc
 
     async def list_keys(self, pattern: str) -> list[str]:
-        """List keys matching a pattern."""
+        """List keys matching a pattern.
+
+        Args:
+            pattern: The pattern to match.
+
+        Returns:
+            list[str]: A list of matching keys.
+
+        Raises:
+            ValueError: If the pattern is not a string.
+            RedisConnectionError: If the connection fails.
+            RedisOperationError: If the operation fails.
+
+        """
         if not isinstance(pattern, str):
             raise ValueError(f"Pattern must be a string, got {type(pattern)}")
 
@@ -599,7 +670,22 @@ class AsyncRedisService:
     async def mget(
         self, keys: list[str], model: type[T]
     ) -> list[T | None | FailedValue]:
-        """Get multiple values from Redis."""
+        """Get multiple values from Redis.
+
+        Args:
+            keys: A list of keys to fetch.
+            model: The Pydantic model to validate against.
+
+        Returns:
+            list[T | None | FailedValue]: A list of validated models, None for
+                missing keys, or FailedValue for items that failed validation.
+
+        Raises:
+            ValueError: If the keys are not a list.
+            RedisConnectionError: If the connection fails.
+            RedisOperationError: If the operation fails.
+
+        """
         if not isinstance(keys, list):
             raise ValueError(f"Keys must be a list, got {type(keys)}")
 
@@ -645,7 +731,20 @@ class AsyncRedisService:
             raise RedisOperationError("Failed to mget keys") from exc
 
     async def delete(self, key: str) -> bool:
-        """Delete a key from Redis."""
+        """Delete a key from Redis.
+
+        Args:
+            key: The key to delete.
+
+        Returns:
+            bool: True if the key was deleted, False otherwise.
+
+        Raises:
+            ValueError: If the key is not a string.
+            RedisConnectionError: If the connection fails.
+            RedisOperationError: If the operation fails.
+
+        """
         if not isinstance(key, str):
             raise ValueError(f"Key must be a string, got {type(key)}")
 
