@@ -1114,6 +1114,10 @@ class ObjectStorageService:
             dest_key: Destination S3 object key.
             dest_path: Full destination path (can be S3, ABFS, or local).
 
+        Returns:
+            tuple[str, str, str]: Tuple of (source_path, destination_path,
+                backend_type).
+
         Raises:
             ValueError: If source or destination parameters are missing.
 
