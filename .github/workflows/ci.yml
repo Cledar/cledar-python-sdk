@@ -79,13 +79,14 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12.7"
-      - name: Install darglint
+      - name: Install uv + project deps (no dev)
         run: |
           pip install uv
           uv sync --no-dev --frozen
-          uv add darglint
-      - name: Run Darglint
-        run: find cledar/ -name "*.py" -not -path "*/tests/*" -exec uv run darglint {} \;
+
+      - name: Run Darglint (tool run)
+        run: |
+          find cledar/ -name "*.py" -not -path "*/tests/*" -exec uv tool run darglint {} \;
 
   # -------------------------------------------------------
   # Test (using uv)
