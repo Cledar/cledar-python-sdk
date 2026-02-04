@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v2.1.0 (2026-02-04)
+
+### Features
+
+- **CPL-178**: Add detailed docstrings across the codebase and update configurations
+  ([`e2a01ea`](https://github.com/Cledar/cledar-python-sdk/commit/e2a01ea44c68c41c1764992ac7d532d263dc56e5))
+
+
 ## v2.0.3 (2025-12-09)
 
 ### Bug Fixes
