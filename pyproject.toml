@@ -70,11 +70,6 @@ quote-style = "double"
 plugins = ["pydantic.mypy"]
 strict = true
 
-[tool.darglint]
-docstring_style = "google"
-strictness = "short"
-ignore = "DAR104,DAR401,DAR402"
-
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
