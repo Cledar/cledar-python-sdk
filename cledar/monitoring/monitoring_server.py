@@ -27,6 +27,10 @@ def _run_monitoring_server(host: str, port: int, app: FastAPI) -> None:
     uvicorn.run(app, host=host, port=port)
 
 
+type Check = Callable[[], bool]
+type Checks = dict[str, Check]
+
+
 @dataclass
 class MonitoringServerConfig:
     """Configuration for the MonitoringServer.
@@ -37,8 +41,8 @@ class MonitoringServerConfig:
 
     """
 
-    readiness_checks: dict[str, Callable[[], bool]]
-    liveness_checks: dict[str, Callable[[], bool]] | None = None
+    readiness_checks: Checks
+    liveness_checks: Checks | None = None
 
 
 class EndpointFilter(logging.Filter):
@@ -118,9 +122,7 @@ class MonitoringServer:
         async def get_healthz_readiness() -> Response:
             return await self._get_healthz_response(self.config.readiness_checks)
 
-    async def _get_healthz_response(
-        self, checks: dict[str, Callable[[], bool]] | None
-    ) -> Response:
+    async def _get_healthz_response(self, checks: Checks | None) -> Response:
         try:
             results = (
                 {check_name: check_fn() for check_name, check_fn in checks.items()}
