@@ -1,3 +1,5 @@
+"""Kafka consumer client module."""
+
 from confluent_kafka import Consumer, KafkaException
 from pydantic import ConfigDict
 from pydantic.dataclasses import dataclass
@@ -16,10 +18,17 @@ from .base import BaseKafkaClient
 
 @dataclass(config=ConfigDict(arbitrary_types_allowed=True))
 class KafkaConsumer(BaseKafkaClient):
+    """Kafka consumer client.
+
+    This class provides methods to connect to Kafka, subscribe to topics,
+    and consume messages.
+    """
+
     config: KafkaConsumerConfig
     client: Consumer | None = None
 
     def connect(self) -> None:
+        """Connect to Kafka servers and start connection monitoring."""
         self.client = Consumer(self.config.to_kafka_config())
         self.check_connection()
         logger.info(
@@ -29,6 +38,12 @@ class KafkaConsumer(BaseKafkaClient):
         self.start_connection_check_thread()
 
     def subscribe(self, topics: list[str]) -> None:
+        """Subscribe to a list of topics.
+
+        Args:
+            topics: A list of topic names to subscribe to.
+
+        """
         if self.client is None:
             logger.error(
                 consumer_not_connected_msg,
@@ -56,6 +71,13 @@ class KafkaConsumer(BaseKafkaClient):
             raise exception
 
     def consume_next(self) -> KafkaMessage | None:
+        """Consume the next message from subscribed topics.
+
+        Returns:
+            KafkaMessage | None: The consumed message or None if no message is
+                available.
+
+        """
         if self.client is None:
             logger.error(consumer_not_connected_msg)
             raise KafkaConsumerNotConnectedError
@@ -94,6 +116,12 @@ class KafkaConsumer(BaseKafkaClient):
             raise exception
 
     def commit(self, message: KafkaMessage) -> None:
+        """Commit offsets for the current message.
+
+        Args:
+            message: The message for which to commit offsets.
+
+        """
         if self.client is None:
             logger.error(consumer_not_connected_msg)
             raise KafkaConsumerNotConnectedError

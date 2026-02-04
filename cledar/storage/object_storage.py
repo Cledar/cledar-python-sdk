@@ -1,3 +1,5 @@
+"""Service for interacting with S3, ABFS, and local filesystem storage."""
+
 import io
 import logging
 from typing import Any, cast
@@ -30,9 +32,17 @@ logger = logging.getLogger("object_storage_service")
 
 
 class ObjectStorageService:
+    """Service for managing object storage operations across multiple backends."""
+
     client: Any = None
 
     def __init__(self, config: ObjectStorageServiceConfig) -> None:
+        """Initialize the object storage service.
+
+        Args:
+            config: Configuration for S3 and Azure storage backends.
+
+        """
         self.client = fsspec.filesystem(
             "s3",
             key=config.s3_access_key,
@@ -56,18 +66,42 @@ class ObjectStorageService:
 
     @staticmethod
     def _is_s3_path(path: str | None) -> bool:
+        """Check if a path is an S3 path.
+
+        Args:
+            path (str | None): Path to check.
+
+        Returns:
+            bool: True if the path starts with s3:// prefix.
+
+        """
         if path is None:
             return False
         return path.lower().startswith(S3_PATH_PREFIX)
 
     @staticmethod
     def _is_abfs_path(path: str | None) -> bool:
+        """Check if a path is an Azure Blob Storage path.
+
+        Args:
+            path: Path to check.
+
+        Returns:
+            bool: True if the path starts with abfs:// or abfss:// prefix.
+
+        """
         if path is None:
             return False
         lower = path.lower()
         return lower.startswith((ABFS_PATH_PREFIX, ABFSS_PATH_PREFIX))
 
     def is_alive(self) -> bool:
+        """Check if the storage service is accessible.
+
+        Returns:
+            bool: True if the service is accessible, False otherwise.
+
+        """
         try:
             self.client.ls(path="")
             return True
@@ -77,6 +111,14 @@ class ObjectStorageService:
     def _write_buffer_to_s3_key(
         self, buffer: io.BytesIO, bucket: str, key: str
     ) -> None:
+        """Write buffer to S3 using bucket and key.
+
+        Args:
+            buffer: Buffer containing data to write.
+            bucket: S3 bucket name.
+            key: S3 object key.
+
+        """
         buffer.seek(0)
         with self.client.open(
             path=f"{S3_PATH_PREFIX}{bucket}/{key}", mode="wb"
@@ -86,6 +128,13 @@ class ObjectStorageService:
     def _write_buffer_to_s3_path(
         self, buffer: io.BytesIO, destination_path: str
     ) -> None:
+        """Write buffer to S3 using full path.
+
+        Args:
+            buffer: Buffer containing data to write.
+            destination_path: Full S3 path (e.g., s3://bucket/key).
+
+        """
         buffer.seek(0)
         with self.client.open(path=destination_path, mode="wb") as fobj:
             fobj.write(buffer.getbuffer())
@@ -93,6 +142,13 @@ class ObjectStorageService:
     def _write_buffer_to_abfs_path(
         self, buffer: io.BytesIO, destination_path: str
     ) -> None:
+        """Write buffer to Azure Blob Storage.
+
+        Args:
+            buffer: Buffer containing data to write.
+            destination_path: Full ABFS path (e.g., abfs://container/path).
+
+        """
         buffer.seek(0)
         with self.azure_client.open(path=destination_path, mode="wb") as fobj:
             fobj.write(buffer.getbuffer())
@@ -100,11 +156,28 @@ class ObjectStorageService:
     def _write_buffer_to_local_path(
         self, buffer: io.BytesIO, destination_path: str
     ) -> None:
+        """Write buffer to local filesystem.
+
+        Args:
+            buffer: Buffer containing data to write.
+            destination_path: Local filesystem path.
+
+        """
         buffer.seek(0)
         with self.local_client.open(path=destination_path, mode="wb") as fobj:
             fobj.write(buffer.getbuffer())
 
     def _read_from_s3_key(self, bucket: str, key: str) -> bytes:
+        """Read file from S3 using bucket and key.
+
+        Args:
+            bucket: S3 bucket name.
+            key: S3 object key.
+
+        Returns:
+            bytes: File contents as bytes.
+
+        """
         with self.client.open(
             path=f"{S3_PATH_PREFIX}{bucket}/{key}", mode="rb"
         ) as fobj:
@@ -112,32 +185,96 @@ class ObjectStorageService:
             return data
 
     def _read_from_s3_path(self, path: str) -> bytes:
+        """Read file from S3 using full path.
+
+        Args:
+            path: Full S3 path (e.g., s3://bucket/key).
+
+        Returns:
+            bytes: File contents as bytes.
+
+        """
         with self.client.open(path=path, mode="rb") as fobj:
             data: bytes = fobj.read()
             return data
 
     def _read_from_abfs_path(self, path: str) -> bytes:
+        """Read file from Azure Blob Storage.
+
+        Args:
+            path: Full ABFS path (e.g., abfs://container/path).
+
+        Returns:
+            bytes: File contents as bytes.
+
+        """
         with self.azure_client.open(path=path, mode="rb") as fobj:
             data: bytes = fobj.read()
             return data
 
     def _read_from_local_path(self, path: str) -> bytes:
+        """Read file from local filesystem.
+
+        Args:
+            path: Local filesystem path.
+
+        Returns:
+            bytes: File contents as bytes.
+
+        """
         with self.local_client.open(path=path, mode="rb") as fobj:
             data: bytes = fobj.read()
             return data
 
     def _put_file(self, fs: Any, lpath: str, rpath: str) -> None:
+        """Upload local file to remote storage.
+
+        Args:
+            fs: Filesystem client.
+            lpath: Local file path.
+            rpath: Remote file path.
+
+        """
         fs.put(lpath=lpath, rpath=rpath)
 
     def _get_file(self, fs: Any, src: str, dst: str) -> None:
+        """Download remote file to local storage.
+
+        Args:
+            fs: Filesystem client.
+            src: Remote source path.
+            dst: Local destination path.
+
+        """
         fs.get(src, dst)
 
     def _list_via_find_or_ls(self, fs: Any, path: str, recursive: bool) -> list[str]:
+        """List files using find (recursive) or ls (non-recursive).
+
+        Args:
+            fs: Filesystem client.
+            path: Path to list.
+            recursive: Whether to list recursively.
+
+        Returns:
+            list[str]: List of file paths.
+
+        """
         if recursive:
             return cast(list[str], fs.find(path))
         return cast(list[str], fs.ls(path, detail=False))
 
     def _normalize_s3_keys(self, bucket: str, objects: list[str]) -> list[str]:
+        """Normalize S3 object paths to keys by removing bucket prefix.
+
+        Args:
+            bucket: S3 bucket name.
+            objects: List of full S3 paths.
+
+        Returns:
+            list[str]: List of normalized keys without bucket prefix.
+
+        """
         keys: list[str] = []
         for obj in objects:
             if obj.startswith(f"{S3_PATH_PREFIX}{bucket}/"):
@@ -149,9 +286,26 @@ class ObjectStorageService:
         return keys
 
     def _size_from_info(self, info: dict[str, Any]) -> int:
+        """Extract file size from file info dictionary.
+
+        Args:
+            info: File info dictionary.
+
+        Returns:
+            int: File size in bytes.
+
+        """
         return int(info.get("size", 0))
 
     def _copy_with_backend(self, backend: str, src: str, dst: str) -> None:
+        """Copy file using the appropriate backend.
+
+        Args:
+            backend: Backend type (s3, abfs, local, or mixed).
+            src: Source path.
+            dst: Destination path.
+
+        """
         if backend == "s3":
             self.client.copy(src, dst)
             return
@@ -168,6 +322,14 @@ class ObjectStorageService:
             dst_f.write(src_f.read())
 
     def _move_with_backend(self, backend: str, src: str, dst: str) -> None:
+        """Move file using the appropriate backend.
+
+        Args:
+            backend: Backend type (s3, abfs, local, or mixed).
+            src: Source path.
+            dst: Destination path.
+
+        """
         if backend == "s3":
             self.client.move(src, dst)
             return
@@ -190,6 +352,15 @@ class ObjectStorageService:
             self.local_client.rm(src)
 
     def _get_fs_for_backend(self, backend: str) -> Any:
+        """Get filesystem client for the specified backend.
+
+        Args:
+            backend: Backend type (s3, abfs, or local).
+
+        Returns:
+            Any: Filesystem client for the backend.
+
+        """
         if backend == "s3":
             return self.client
         if backend == "abfs":
@@ -199,6 +370,20 @@ class ObjectStorageService:
     def _resolve_source_backend_and_path(
         self, bucket: str | None, key: str | None, path: str | None
     ) -> TransferPath:
+        """Resolve source backend and path from various input formats.
+
+        Args:
+            bucket: S3 bucket name.
+            key: S3 object key.
+            path: Full path (can be S3, ABFS, or local).
+
+        Returns:
+            TransferPath: Transfer path with backend type and resolved path.
+
+        Raises:
+            ValueError: If neither path nor bucket+key are provided.
+
+        """
         if bucket and key:
             return TransferPath(backend="s3", path=f"{S3_PATH_PREFIX}{bucket}/{key}")
         if path and self._is_s3_path(path):
@@ -212,6 +397,20 @@ class ObjectStorageService:
     def _resolve_dest_backend_and_path(
         self, bucket: str | None, key: str | None, destination_path: str | None
     ) -> TransferPath:
+        """Resolve destination backend and path from various input formats.
+
+        Args:
+            bucket: S3 bucket name.
+            key: S3 object key.
+            destination_path: Full destination path (can be S3, ABFS, or local).
+
+        Returns:
+            TransferPath: Transfer path with backend type and resolved path.
+
+        Raises:
+            ValueError: If neither destination_path nor bucket+key are provided.
+
+        """
         if bucket and key:
             return TransferPath(backend="s3", path=f"{S3_PATH_PREFIX}{bucket}/{key}")
         if destination_path and self._is_s3_path(destination_path):
@@ -223,6 +422,18 @@ class ObjectStorageService:
         raise ValueError("Either destination_path or bucket and key must be provided")
 
     def _resolve_path_backend(self, path: str | None) -> TransferPath:
+        """Resolve backend type from path.
+
+        Args:
+            path: Full path (can be S3, ABFS, or local).
+
+        Returns:
+            Transfer path with backend type and path.
+
+        Raises:
+            ValueError: If path is not provided.
+
+        """
         if path and self._is_s3_path(path):
             return TransferPath(backend="s3", path=path)
         if path and self._is_abfs_path(path):
@@ -232,6 +443,16 @@ class ObjectStorageService:
         raise ValueError("Path must be provided")
 
     def _read_from_backend_path(self, backend: str, src_path: str) -> bytes:
+        """Read file from the specified backend.
+
+        Args:
+            backend: Backend type (s3, abfs, or local).
+            src_path: Source path to read from.
+
+        Returns:
+            bytes: File contents as bytes.
+
+        """
         if backend == "s3":
             return self._read_from_s3_path(src_path)
         if backend == "abfs":
@@ -239,6 +460,19 @@ class ObjectStorageService:
         return self._read_from_local_path(src_path)
 
     def has_bucket(self, bucket: str, throw: bool = False) -> bool:
+        """Check if an S3 bucket exists and is accessible.
+
+        Args:
+            bucket: S3 bucket name.
+            throw: Whether to raise an exception if bucket is not found.
+
+        Returns:
+            bool: True if bucket exists and is accessible, False otherwise.
+
+        Raises:
+            RequiredBucketNotFoundError: If throw=True and bucket is not found.
+
+        """
         try:
             self.client.ls(path=bucket)
             return True
@@ -261,6 +495,19 @@ class ObjectStorageService:
         key: str | None = None,
         destination_path: str | None = None,
     ) -> None:
+        """Upload a buffer to storage.
+
+        Args:
+            buffer: Buffer containing data to upload.
+            bucket: S3 bucket name (for S3 destination).
+            key: S3 object key (for S3 destination).
+            destination_path: Full destination path (can be S3, ABFS, or local).
+
+        Raises:
+            UploadBufferError: If upload fails.
+            ValueError: If neither destination_path nor bucket+key are provided.
+
+        """
         try:
             if bucket and key:
                 self._write_buffer_to_s3_key(buffer=buffer, bucket=bucket, key=key)
@@ -316,6 +563,22 @@ class ObjectStorageService:
         path: str | None = None,
         max_tries: int = 3,
     ) -> bytes:
+        """Read file from storage.
+
+        Args:
+            bucket: S3 bucket name (for S3 source).
+            key: S3 object key (for S3 source).
+            path: Full source path (can be S3, ABFS, or local).
+            max_tries: Number of retry attempts on failure.
+
+        Returns:
+            bytes: File contents as bytes.
+
+        Raises:
+            ReadFileError: If read fails after all retries.
+            NotImplementedError: If this should never be reached.
+
+        """
         transfer_path: TransferPath = self._resolve_source_backend_and_path(
             bucket=bucket, key=key, path=path
         )
@@ -357,6 +620,18 @@ class ObjectStorageService:
         key: str | None = None,
         destination_path: str | None = None,
     ) -> None:
+        """Upload a local file to storage.
+
+        Args:
+            file_path: Local file path to upload.
+            bucket: S3 bucket name (for S3 destination).
+            key: S3 object key (for S3 destination).
+            destination_path: Full destination path (can be S3, ABFS, or local).
+
+        Raises:
+            UploadFileError: If upload fails.
+
+        """
         try:
             transfer_path: TransferPath = self._resolve_dest_backend_and_path(
                 bucket=bucket, key=key, destination_path=destination_path
@@ -403,8 +678,7 @@ class ObjectStorageService:
         path: str | None = None,
         recursive: bool = True,
     ) -> list[str]:
-        """
-        List objects in storage with optional prefix filtering.
+        """List objects in storage with optional prefix filtering.
 
         Args:
             bucket: The bucket name (for S3)
@@ -413,7 +687,12 @@ class ObjectStorageService:
             recursive: If True, list all objects recursively
 
         Returns:
-            List of object keys/paths
+            list[str]: List of object keys/paths
+
+        Raises:
+            ListObjectsError: If listing objects fails.
+            ValueError: If neither path nor bucket are provided.
+
         """
         try:
             if path:
@@ -480,13 +759,17 @@ class ObjectStorageService:
     def delete_file(
         self, bucket: str | None = None, key: str | None = None, path: str | None = None
     ) -> None:
-        """
-        Delete a single object from storage.
+        """Delete a single object from storage.
 
         Args:
             bucket: The bucket name (for S3)
             key: The object key to delete (for S3)
             path: The filesystem path. Uses S3 if starts with s3://, otherwise local
+
+        Raises:
+            DeleteFileError: If deleting the file fails.
+            ValueError: If neither path nor bucket+key are provided.
+
         """
         try:
             if bucket and key:
@@ -532,8 +815,7 @@ class ObjectStorageService:
     def file_exists(
         self, bucket: str | None = None, key: str | None = None, path: str | None = None
     ) -> bool:
-        """
-        Check if a specific file exists in storage.
+        """Check if a specific file exists in storage.
 
         Args:
             bucket: The bucket name (for S3)
@@ -541,7 +823,12 @@ class ObjectStorageService:
             path: The filesystem path. Uses S3 if starts with s3://, otherwise local
 
         Returns:
-            True if the file exists, False otherwise
+            bool: True if the file exists, False otherwise
+
+        Raises:
+            CheckFileExistenceError: If checking file existence fails.
+            ValueError: If neither path nor bucket+key are provided.
+
         """
         try:
             if bucket and key:
@@ -592,8 +879,7 @@ class ObjectStorageService:
         source_path: str | None = None,
         max_tries: int = 3,
     ) -> None:
-        """
-        Download a file from storage to local filesystem.
+        """Download a file from storage to local filesystem.
 
         Args:
             dest_path: The destination local path where the file should be saved
@@ -601,6 +887,10 @@ class ObjectStorageService:
             key: The object key to download (for S3)
             source_path: The source path. Uses S3 if starts with s3://, otherwise local
             max_tries: Number of retry attempts on failure
+
+        Raises:
+            DownloadFileError: If download fails after all retries.
+
         """
         transfer_path: TransferPath = self._resolve_source_backend_and_path(
             bucket=bucket, key=key, path=source_path
@@ -653,8 +943,7 @@ class ObjectStorageService:
     def get_file_size(
         self, bucket: str | None = None, key: str | None = None, path: str | None = None
     ) -> int:
-        """
-        Get the size of a file without downloading it.
+        """Get the size of a file without downloading it.
 
         Args:
             bucket: The bucket name (for S3)
@@ -662,7 +951,12 @@ class ObjectStorageService:
             path: The filesystem path. Uses S3 if starts with s3://, otherwise local
 
         Returns:
-            File size in bytes
+            int: File size in bytes
+
+        Raises:
+            GetFileSizeError: If getting file size fails.
+            ValueError: If neither path nor bucket+key are provided.
+
         """
         try:
             if bucket and key:
@@ -728,8 +1022,7 @@ class ObjectStorageService:
     def get_file_info(
         self, bucket: str | None = None, key: str | None = None, path: str | None = None
     ) -> dict[str, Any]:
-        """
-        Get metadata information about a file.
+        """Get metadata information about a file.
 
         Args:
             bucket: The bucket name (for S3)
@@ -737,7 +1030,13 @@ class ObjectStorageService:
             path: The filesystem path. Uses S3 if starts with s3://, otherwise local
 
         Returns:
-            Dictionary containing file metadata (size, modified time, etc.)
+            dict[str, Any]: Dictionary containing file metadata (size, modified
+                time, etc.)
+
+        Raises:
+            GetFileInfoError: If getting file info fails.
+            ValueError: If neither path nor bucket+key are provided.
+
         """
         try:
             if bucket and key:
@@ -805,9 +1104,23 @@ class ObjectStorageService:
         dest_key: str | None,
         dest_path: str | None,
     ) -> tuple[str, str, str]:
-        """
-        Resolve source and destination paths for copy/move operations and
-        identify which backend to use (s3, abfs, local, or mixed).
+        """Resolve source and destination paths for copy/move operations.
+
+        Args:
+            source_bucket: Source S3 bucket name.
+            source_key: Source S3 object key.
+            source_path: Full source path (can be S3, ABFS, or local).
+            dest_bucket: Destination S3 bucket name.
+            dest_key: Destination S3 object key.
+            dest_path: Full destination path (can be S3, ABFS, or local).
+
+        Returns:
+            tuple[str, str, str]: Tuple of (source_path, destination_path,
+                backend_type).
+
+        Raises:
+            ValueError: If source or destination parameters are missing.
+
         """
         src_is_s3 = False
         src_is_abfs = False
@@ -865,8 +1178,7 @@ class ObjectStorageService:
         dest_key: str | None = None,
         dest_path: str | None = None,
     ) -> None:
-        """
-        Copy a file from one location to another.
+        """Copy a file from one location to another.
 
         Args:
             source_bucket: Source bucket name (for S3 source)
@@ -875,6 +1187,10 @@ class ObjectStorageService:
             dest_bucket: Destination bucket name (for S3 destination)
             dest_key: Destination object key (for S3 destination)
             dest_path: Destination path. Uses S3 if starts with s3://, otherwise local
+
+        Raises:
+            CopyFileError: If copying the file fails.
+
         """
         try:
             src, dst, backend = self._resolve_transfer_paths(
@@ -914,8 +1230,7 @@ class ObjectStorageService:
         dest_key: str | None = None,
         dest_path: str | None = None,
     ) -> None:
-        """
-        Move/rename a file from one location to another.
+        """Move/rename a file from one location to another.
 
         Args:
             source_bucket: Source bucket name (for S3 source)
@@ -924,6 +1239,10 @@ class ObjectStorageService:
             dest_bucket: Destination bucket name (for S3 destination)
             dest_key: Destination object key (for S3 destination)
             dest_path: Destination path. Uses S3 if starts with s3://, otherwise local
+
+        Raises:
+            MoveFileError: If moving the file fails.
+
         """
         try:
             src, dst, backend = self._resolve_transfer_paths(

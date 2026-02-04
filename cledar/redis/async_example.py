@@ -1,5 +1,4 @@
-"""
-Example usage of AsyncRedisService with async/await.
+"""Example usage of AsyncRedisService with async/await.
 
 This example demonstrates:
 - Connecting to Redis asynchronously
@@ -16,13 +15,15 @@ from cledar.redis import AsyncRedisService, RedisServiceConfig
 
 
 class UserModel(BaseModel):
+    """Simple user model for demonstration."""
+
     user_id: int
     name: str
     email: str
 
 
 async def basic_usage_example() -> None:
-    """Basic async Redis operations."""
+    """Demonstrate basic async Redis operations."""
     print("=== Basic Async Usage ===")
 
     # Configure service

@@ -1,3 +1,5 @@
+"""Kafka producer client module."""
+
 from confluent_kafka import KafkaException, Producer
 from pydantic import ConfigDict
 from pydantic.dataclasses import dataclass
@@ -13,10 +15,16 @@ from .base import BaseKafkaClient
 
 @dataclass(config=ConfigDict(arbitrary_types_allowed=True))
 class KafkaProducer(BaseKafkaClient):
+    """Kafka producer client.
+
+    This class provides methods to connect to Kafka and send messages.
+    """
+
     config: KafkaProducerConfig
     client: Producer | None = None
 
     def connect(self) -> None:
+        """Connect to Kafka servers and start connection monitoring."""
         self.client = Producer(self.config.to_kafka_config())
         self.check_connection()
         logger.info(
@@ -32,6 +40,15 @@ class KafkaProducer(BaseKafkaClient):
         key: str | None,
         headers: list[tuple[str, bytes]] | None = None,
     ) -> None:
+        """Send a message to a Kafka topic.
+
+        Args:
+            topic: The name of the topic to send the message to.
+            value: The message value.
+            key: The message key.
+            headers: Optional list of message headers.
+
+        """
         if self.client is None:
             logger.error(
                 "KafkaProducer is not connected. Call 'connect' first.",

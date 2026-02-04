@@ -1,3 +1,5 @@
+"""Redis-based configuration store with caching and watching capabilities."""
+
 import json
 import re
 import time
@@ -19,6 +21,11 @@ OP_EVENT_FORMAT = "__keyevent@{DB}__:{OPERATION}"
 
 
 class RedisConfigStore:
+    """Store for configuration objects in Redis with local caching and pub/sub.
+
+    Provides updates on configuration changes.
+    """
+
     TYPE_NONE = "none"
     TYPE_LIST = "list"
     TYPE_STRING = "string"
@@ -29,6 +36,13 @@ class RedisConfigStore:
     EVENT_LSET = "lset"
 
     def __init__(self, redis: Redis, prefix: str | None = None) -> None:
+        """Initialize the RedisConfigStore.
+
+        Args:
+            redis: An initialized Redis client.
+            prefix: Optional prefix for keys stored in Redis.
+
+        """
         self._redis: Redis = redis
         self._pubsub = redis.pubsub()  # type: ignore
         self._db: int = redis.connection_pool.connection_kwargs.get("db")
@@ -42,18 +56,52 @@ class RedisConfigStore:
         self._watcher_thread.start()
 
     def is_ready(self) -> bool:
+        """Check if the Redis connection is ready.
+
+        Returns:
+            bool: True if Redis responds to ping, False otherwise.
+
+        """
         try:
             return self._redis.ping()  # type: ignore
         except RedisConnectionError:
             return False
 
     def versions(self, key: str) -> int | None:
+        """Get the version (e.g., list length or existence) of a key.
+
+        Args:
+            key: The key to check.
+
+        Returns:
+            int | None: The version of the key.
+
+        """
         return self._key_versions(key)
 
     def cached_version(self, key: str) -> int | None:
+        """Get the version of a key stored in the local cache.
+
+        Args:
+            key: The key to check.
+
+        Returns:
+            int | None: The cached version of the key.
+
+        """
         return self._cache_verisons.get(key)
 
     def fetch(self, cls: type[T], key: str) -> T | None:
+        """Fetch a configuration object from Redis or local cache.
+
+        Args:
+            cls: The class to instantiate with the fetched data.
+            key: The key associated with the configuration.
+
+        Returns:
+            T | None: The configuration object, or None if not found.
+
+        """
         if key not in self._cache:
             new_value = self._key_fetch(key)
             if new_value is None:
@@ -64,11 +112,24 @@ class RedisConfigStore:
         return cls(**json.loads(self._cache[key]))
 
     def update(self, key: str, value: T) -> None:
+        """Update a configuration object in Redis and local cache.
+
+        Args:
+            key: The key to update.
+            value: The configuration object to store.
+
+        """
         self._cache[key] = self._key_update(key, value)
         self._cache_verisons[key] = self._key_versions(key) or -1
         self._key_watch(key)
 
     def delete(self, key: str) -> None:
+        """Delete a configuration object from Redis and local cache.
+
+        Args:
+            key: The key to delete.
+
+        """
         if key in self._cache:
             del self._cache[key]
             del self._cache_verisons[key]
@@ -78,12 +139,32 @@ class RedisConfigStore:
     def watch(
         self, key: str, callback: Callable[[int, str, str, str], None] | None = None
     ) -> None:
+        """Watch a key for changes and execute a callback.
+
+        Args:
+            key: The key to watch.
+            callback: The callback function to execute on change.
+
+        """
         self._key_watch(key, callback)
 
     def __setitem__(self, key: str, value: T) -> None:
+        """Alias for update method.
+
+        Args:
+            key: The key to update.
+            value: The value to set.
+
+        """
         self.update(key, value)
 
     def __delitem__(self, key: str) -> None:
+        """Alias for delete method.
+
+        Args:
+            key: The key to delete.
+
+        """
         self.delete(key)
 
     def _key_watch(

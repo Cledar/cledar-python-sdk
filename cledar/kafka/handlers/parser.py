@@ -1,3 +1,5 @@
+"""Kafka message parser module."""
+
 import json
 
 from pydantic import BaseModel
@@ -9,15 +11,25 @@ from ..models.message import KafkaMessage
 
 
 class IncorrectMessageValueError(Exception):
-    """
-    Message needs to have `value` field present in order to be parsed.
+    """Message needs to have `value` field present in order to be parsed.
 
     This is unless `model` is set to `None`.
     """
 
 
 class InputParser[Payload: BaseModel]:
+    """Parser for Kafka messages into Pydantic models.
+
+    Generic class for parsing Kafka messages.
+    """
+
     def __init__(self, model: type[Payload]) -> None:
+        """Initialize InputParser with a Pydantic model.
+
+        Args:
+            model: The Pydantic model to validate messages against.
+
+        """
         self.model: type[Payload] = model
 
     def parse_json(self, json_str: str) -> Payload:
@@ -25,6 +37,16 @@ class InputParser[Payload: BaseModel]:
 
         Invalid JSON should raise IncorrectMessageValueError, while schema
         validation errors should bubble up as ValidationError.
+
+        Args:
+            json_str: The JSON string to parse.
+
+        Returns:
+            Payload: The validated Pydantic model instance.
+
+        Raises:
+            IncorrectMessageValueError: If the JSON is invalid.
+
         """
         try:
             data = json.loads(json_str)
@@ -34,6 +56,18 @@ class InputParser[Payload: BaseModel]:
         return self.model.model_validate(data)
 
     def parse_message(self, message: KafkaMessage) -> InputKafkaMessage[Payload]:
+        """Parse a Kafka message into an InputKafkaMessage with a validated payload.
+
+        Args:
+            message: The Kafka message to parse.
+
+        Returns:
+            InputKafkaMessage[Payload]: The parsed message with payload.
+
+        Raises:
+            IncorrectMessageValueError: If message value is missing but required.
+
+        """
         if message.value is None and self.model is not None:
             raise IncorrectMessageValueError
 

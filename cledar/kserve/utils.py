@@ -1,3 +1,5 @@
+"""Utilities for KServe integration and CloudEvents processing."""
+
 CE_SOURCE_HEADER = "ce-source"
 
 
@@ -18,6 +20,7 @@ def get_input_topic(headers: dict[str, str]) -> str | None:
         >>> headers = {"ce-source": "kafka://cluster#my-topic"}
         >>> get_input_topic(headers)
         'my-topic'
+
     """
     source = headers.get(CE_SOURCE_HEADER)
     if not source or "#" not in source:

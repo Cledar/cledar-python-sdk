@@ -1,3 +1,5 @@
+"""Dead letter handler for Kafka messages."""
+
 import json
 
 from ..clients.producer import KafkaProducer
@@ -7,16 +9,15 @@ from ..models.output import FailedMessageData
 
 
 class DeadLetterHandler:
-    """
-    A Handler for handling failed messages and sending them to a DLQ topic.
-    """
+    """A handler for handling failed messages and sending them to a DLQ topic."""
 
     def __init__(self, producer: KafkaProducer, dlq_topic: str) -> None:
-        """
-        Initialize DeadLetterHandler with a Kafka producer and DLQ topic.
+        """Initialize DeadLetterHandler with a Kafka producer and DLQ topic.
 
-        :param producer: KafkaProducer instance.
-        :param dlq_topic: The name of the DLQ Kafka topic.
+        Args:
+            producer: KafkaProducer instance.
+            dlq_topic: The name of the DLQ Kafka topic.
+
         """
         self.producer: KafkaProducer = producer
         self.dlq_topic: str = dlq_topic
@@ -26,11 +27,12 @@ class DeadLetterHandler:
         message: KafkaMessage,
         failures_details: list[FailedMessageData] | None,
     ) -> None:
-        """
-        Handles a failed message by sending it to the DLQ topic.
+        """Handle a failed message by sending it to the DLQ topic.
 
-        :param message: The original Kafka message.
-        :param failures_details: A list of FailedMessageData.
+        Args:
+            message: The original Kafka message.
+            failures_details: A list of FailedMessageData.
+
         """
         logger.info("Handling message for DLQ.")
 
@@ -43,11 +45,14 @@ class DeadLetterHandler:
         self,
         failures_details: list[FailedMessageData] | None,
     ) -> list[tuple[str, bytes]]:
-        """
-        Builds Kafka headers containing exception details.
+        """Build Kafka headers containing exception details.
 
-        :param failures_details: A list of FailedMessageData.
-        :return: A list of Kafka headers.
+        Args:
+            failures_details: A list of FailedMessageData.
+
+        Returns:
+            list[tuple[str, bytes]]: A list of Kafka headers.
+
         """
         headers: list[tuple[str, bytes]] = []
 
@@ -65,12 +70,13 @@ class DeadLetterHandler:
         key: str | None,
         headers: list[tuple[str, bytes]],
     ) -> None:
-        """
-        Sends a DLQ message to the Kafka DLQ topic with headers.
+        """Send a DLQ message to the Kafka DLQ topic with headers.
 
-        :param message: The DLQ message payload.
-        :param key: The original Kafka message key.
-        :param headers: Kafka headers containing exception details.
+        Args:
+            message: The DLQ message payload.
+            key: The original Kafka message key.
+            headers: Kafka headers containing exception details.
+
         """
         self.producer.send(
             topic=self.dlq_topic, value=message, key=key, headers=headers

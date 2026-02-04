@@ -1,3 +1,5 @@
+"""Object storage module for handling S3, ABFS, and local filesystem operations."""
+
 from .models import ObjectStorageServiceConfig
 from .object_storage import ObjectStorageService
 
