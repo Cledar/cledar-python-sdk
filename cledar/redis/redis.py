@@ -78,16 +78,26 @@ class RedisServiceConfig:
     redis_url: str | None = None
 
     def __post_init__(self) -> None:
-        """Parse redis_url if provided, otherwise validate individual parameters."""
+        """Parse redis_url if provided, otherwise validate individual parameters.
+
+        Raises:
+            ValueError: When neither redis_url nor redis_host/redis_port are provided.
+
+        """
         if self.redis_url:
             parsed = urllib.parse.urlparse(self.redis_url)
             self.redis_host = parsed.hostname or ""
             self.redis_port = parsed.port or 6379
-            self.redis_db = int(parsed.path.lstrip("/")) if parsed.path.lstrip("/") else 0
+            self.redis_db = (
+                int(parsed.path.lstrip("/")) if parsed.path.lstrip("/") else 0
+            )
             self.redis_password = parsed.password
         else:
             if not self.redis_host or not self.redis_port:
-                msg = "Either redis_url or both redis_host and redis_port must be provided"
+                msg = (
+                    "Either redis_url or both redis_host and redis_port must be "
+                    "provided"
+                )
                 raise ValueError(msg)
 
 
