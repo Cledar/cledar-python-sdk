@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from cledar.monitoring import MonitoringServer, MonitoringServerConfig
+from cledar.monitoring.monitoring_server import Checks
 
 HOST = "localhost"
 PORT = 9999
@@ -30,7 +31,7 @@ def readiness_flag() -> ReadinessFlag:
 @pytest.fixture
 def app(readiness_flag: ReadinessFlag) -> FastAPI:
     _app = FastAPI()
-    default_readiness_checks = dict({"is_ready": readiness_flag.check_if_ready})
+    default_readiness_checks: Checks = {"is_ready": readiness_flag.check_if_ready}
     config = MonitoringServerConfig(default_readiness_checks)
     monitoring_server = MonitoringServer(HOST, PORT, config)
     monitoring_server.add_paths(_app)

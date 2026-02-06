@@ -6,7 +6,7 @@ import inspect
 import json
 import logging
 import threading
-from typing import TYPE_CHECKING
+from collections.abc import Awaitable, Callable
 
 import prometheus_client
 import uvicorn
@@ -14,8 +14,9 @@ from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic.dataclasses import dataclass
 
-if TYPE_CHECKING:
-    from . import Checks
+type CheckResult = bool | Awaitable[bool]
+type Check = Callable[[], CheckResult]
+type Checks = dict[str, Check]
 
 
 def _create_app() -> FastAPI:
