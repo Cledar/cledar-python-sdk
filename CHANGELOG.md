@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v2.1.2 (2026-02-06)
+
+### Bug Fixes
+
+- **CPL-320**: Set default value for `s3_max_concurrency` in object storage models
+  ([#21](https://github.com/Cledar/cledar-python-sdk/pull/21),
+  [`d88e44f`](https://github.com/Cledar/cledar-python-sdk/commit/d88e44f5f56208317d33ebf127fddc6d0e81e10a))
+
+
 ## v2.1.1 (2026-02-06)
 
 ### Bug Fixes
