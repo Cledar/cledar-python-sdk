@@ -3,6 +3,7 @@
 import json
 import logging
 import threading
+from collections.abc import Awaitable, Callable
 
 import prometheus_client
 import uvicorn
@@ -10,7 +11,9 @@ from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic.dataclasses import dataclass
 
-from . import Checks
+type CheckResult = bool | Awaitable[bool]
+type Check = Callable[[], CheckResult]
+type Checks = dict[str, Check]
 
 
 def _create_app() -> FastAPI:

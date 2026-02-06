@@ -2,7 +2,8 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from cledar.monitoring import Checks, MonitoringServer, MonitoringServerConfig
+from cledar.monitoring import MonitoringServer, MonitoringServerConfig
+from cledar.monitoring.monitoring_server import Checks
 
 HOST = "localhost"
 PORT = 9999
