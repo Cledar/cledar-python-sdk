@@ -9,7 +9,7 @@ from typing import Any, TypeVar, cast
 
 import redis
 import redis.asyncio as aioredis
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, ConfigDict, ValidationError
 from pydantic.dataclasses import dataclass
 
 from .exceptions import (
@@ -45,7 +45,7 @@ class CustomEncoder(json.JSONEncoder):
 T = TypeVar("T", bound=BaseModel)
 
 
-@dataclass
+@dataclass(config=ConfigDict(arbitrary_types_allowed=True))
 class FailedValue:
     """Represents a failed Redis operation for a specific key."""
 
