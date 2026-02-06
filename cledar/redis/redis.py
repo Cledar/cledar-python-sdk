@@ -2,14 +2,15 @@
 
 import json
 import logging
-from dataclasses import dataclass
+import urllib.parse
 from datetime import datetime
 from enum import Enum
 from typing import Any, TypeVar, cast
 
 import redis
 import redis.asyncio as aioredis
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, ConfigDict, ValidationError
+from pydantic.dataclasses import dataclass
 
 from .exceptions import (
     RedisConnectionError,
@@ -44,7 +45,7 @@ class CustomEncoder(json.JSONEncoder):
 T = TypeVar("T", bound=BaseModel)
 
 
-@dataclass
+@dataclass(config=ConfigDict(arbitrary_types_allowed=True))
 class FailedValue:
     """Represents a failed Redis operation for a specific key."""
 
@@ -54,12 +55,50 @@ class FailedValue:
 
 @dataclass
 class RedisServiceConfig:
-    """Configuration for Redis services."""
+    """Configuration for Redis services.
 
-    redis_host: str
-    redis_port: int
+    Supports two initialization modes:
+    1. Pass redis_url to parse connection details from a URL
+    2. Pass individual connection parameters (redis_host, redis_port, etc.)
+
+    Args:
+        redis_url: Redis connection URL (e.g., redis://:password@host:port/db).
+            If provided, individual parameters are ignored.
+        redis_host: Redis host address.
+        redis_port: Redis port number.
+        redis_db: Redis database number (default: 0).
+        redis_password: Redis password (optional).
+
+    """
+
+    redis_host: str = ""
+    redis_port: int = 0
     redis_db: int = 0
     redis_password: str | None = None
+    redis_url: str | None = None
+
+    def __post_init__(self) -> None:
+        """Parse redis_url if provided, otherwise validate individual parameters.
+
+        Raises:
+            ValueError: When neither redis_url nor redis_host/redis_port are provided.
+
+        """
+        if self.redis_url:
+            parsed = urllib.parse.urlparse(self.redis_url)
+            self.redis_host = parsed.hostname or ""
+            self.redis_port = parsed.port or 6379
+            self.redis_db = (
+                int(parsed.path.lstrip("/")) if parsed.path.lstrip("/") else 0
+            )
+            self.redis_password = parsed.password
+        else:
+            if not self.redis_host or not self.redis_port:
+                msg = (
+                    "Either redis_url or both redis_host and redis_port must be "
+                    "provided"
+                )
+                raise ValueError(msg)
 
 
 class RedisService:
