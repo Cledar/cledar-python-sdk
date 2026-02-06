@@ -3,7 +3,6 @@
 import json
 import logging
 import urllib.parse
-from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from typing import Any, TypeVar, cast
@@ -11,6 +10,7 @@ from typing import Any, TypeVar, cast
 import redis
 import redis.asyncio as aioredis
 from pydantic import BaseModel, ValidationError
+from pydantic.dataclasses import dataclass
 
 from .exceptions import (
     RedisConnectionError,
