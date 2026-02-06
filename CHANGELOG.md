@@ -2,6 +2,25 @@
 
 <!-- version list -->
 
+## v2.1.1 (2026-02-06)
+
+### Bug Fixes
+
+- **CPL-314**: Add support for redis_url parsing in RedisServiceConfig
+  ([`e1cd27e`](https://github.com/Cledar/cledar-python-sdk/commit/e1cd27e1c6a1b370c6120dbc49095693a9220491))
+
+- **CPL-314**: Move Redis URL parser into SDK
+  ([`e1cd27e`](https://github.com/Cledar/cledar-python-sdk/commit/e1cd27e1c6a1b370c6120dbc49095693a9220491))
+
+### Refactoring
+
+- **CPL-314**: Enable arbitrary types in FailedValue dataclass
+  ([`e1cd27e`](https://github.com/Cledar/cledar-python-sdk/commit/e1cd27e1c6a1b370c6120dbc49095693a9220491))
+
+- **CPL-314**: Replace `dataclasses` with `pydantic.dataclasses`
+  ([`e1cd27e`](https://github.com/Cledar/cledar-python-sdk/commit/e1cd27e1c6a1b370c6120dbc49095693a9220491))
+
+
 ## v2.1.0 (2026-02-04)
 
 ### Features
