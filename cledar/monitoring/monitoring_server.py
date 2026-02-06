@@ -1,7 +1,5 @@
 """Prometheus monitoring and health checks server implementation."""
 
-from __future__ import annotations
-
 import inspect
 import json
 import logging
