@@ -3,13 +3,14 @@
 import json
 import logging
 import threading
-from collections.abc import Callable
 
 import prometheus_client
 import uvicorn
 from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic.dataclasses import dataclass
+
+from . import Checks
 
 
 def _create_app() -> FastAPI:
@@ -25,10 +26,6 @@ def _create_app() -> FastAPI:
 
 def _run_monitoring_server(host: str, port: int, app: FastAPI) -> None:
     uvicorn.run(app, host=host, port=port)
-
-
-type Check = Callable[[], bool]
-type Checks = dict[str, Check]
 
 
 @dataclass
