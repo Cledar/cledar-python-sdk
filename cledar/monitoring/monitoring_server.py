@@ -3,13 +3,17 @@
 import json
 import logging
 import threading
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 
 import prometheus_client
 import uvicorn
 from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic.dataclasses import dataclass
+
+type CheckResult = bool | Awaitable[bool]
+type Check = Callable[[], CheckResult]
+type Checks = dict[str, Check]
 
 
 def _create_app() -> FastAPI:
@@ -37,8 +41,8 @@ class MonitoringServerConfig:
 
     """
 
-    readiness_checks: dict[str, Callable[[], bool]]
-    liveness_checks: dict[str, Callable[[], bool]] | None = None
+    readiness_checks: Checks
+    liveness_checks: Checks | None = None
 
 
 class EndpointFilter(logging.Filter):
@@ -118,9 +122,7 @@ class MonitoringServer:
         async def get_healthz_readiness() -> Response:
             return await self._get_healthz_response(self.config.readiness_checks)
 
-    async def _get_healthz_response(
-        self, checks: dict[str, Callable[[], bool]] | None
-    ) -> Response:
+    async def _get_healthz_response(self, checks: Checks | None) -> Response:
         try:
             results = (
                 {check_name: check_fn() for check_name, check_fn in checks.items()}
