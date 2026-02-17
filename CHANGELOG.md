@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v2.1.3 (2026-02-17)
+
+### Bug Fixes
+
+- **CPL-256**: Introduce type aliases for monitoring checks
+  ([#22](https://github.com/Cledar/cledar-python-sdk/pull/22),
+  [`4d33fd4`](https://github.com/Cledar/cledar-python-sdk/commit/4d33fd43a6d6480c951edee90da2e2d47332bd37))
+
+
 ## v2.1.2 (2026-02-06)
 
 ### Bug Fixes
