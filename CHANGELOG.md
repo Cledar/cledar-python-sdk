@@ -2,6 +2,43 @@
 
 <!-- version list -->
 
+## v2.1.3 (2026-02-17)
+
+### Bug Fixes
+
+- **CPL-256**: Introduce type aliases for monitoring checks
+  ([#22](https://github.com/Cledar/cledar-python-sdk/pull/22),
+  [`4d33fd4`](https://github.com/Cledar/cledar-python-sdk/commit/4d33fd43a6d6480c951edee90da2e2d47332bd37))
+
+
+## v2.1.2 (2026-02-06)
+
+### Bug Fixes
+
+- **CPL-320**: Set default value for `s3_max_concurrency` in object storage models
+  ([#21](https://github.com/Cledar/cledar-python-sdk/pull/21),
+  [`d88e44f`](https://github.com/Cledar/cledar-python-sdk/commit/d88e44f5f56208317d33ebf127fddc6d0e81e10a))
+
+
+## v2.1.1 (2026-02-06)
+
+### Bug Fixes
+
+- **CPL-314**: Add support for redis_url parsing in RedisServiceConfig
+  ([`e1cd27e`](https://github.com/Cledar/cledar-python-sdk/commit/e1cd27e1c6a1b370c6120dbc49095693a9220491))
+
+- **CPL-314**: Move Redis URL parser into SDK
+  ([`e1cd27e`](https://github.com/Cledar/cledar-python-sdk/commit/e1cd27e1c6a1b370c6120dbc49095693a9220491))
+
+### Refactoring
+
+- **CPL-314**: Enable arbitrary types in FailedValue dataclass
+  ([`e1cd27e`](https://github.com/Cledar/cledar-python-sdk/commit/e1cd27e1c6a1b370c6120dbc49095693a9220491))
+
+- **CPL-314**: Replace `dataclasses` with `pydantic.dataclasses`
+  ([`e1cd27e`](https://github.com/Cledar/cledar-python-sdk/commit/e1cd27e1c6a1b370c6120dbc49095693a9220491))
+
+
 ## v2.1.0 (2026-02-04)
 
 ### Features
