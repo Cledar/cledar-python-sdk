@@ -1,5 +1,6 @@
 """Prometheus monitoring and health checks server implementation."""
 
+import inspect
 import json
 import logging
 import threading
@@ -123,18 +124,18 @@ class MonitoringServer:
             return await self._get_healthz_response(self.config.readiness_checks)
 
     async def _get_healthz_response(self, checks: Checks | None) -> Response:
-        try:
-            results = (
-                {check_name: check_fn() for check_name, check_fn in checks.items()}
-                if checks
-                else {}
-            )
+        """Build the health check response payload and HTTP status.
 
-            status = "error"
-            status_code = 503
-            if all(results.values()):
-                status = "ok"
-                status_code = 200
+        Args:
+            checks: Mapping of check names to callables.
+
+        Returns:
+            FastAPI response with health status and check results.
+
+        """
+        try:
+            results = await self._collect_check_results(checks)
+            status, status_code = self._evaluate_health_status(results)
 
             data = {"status": status, "checks": results}
             data_json = json.dumps(data)
@@ -144,6 +145,43 @@ class MonitoringServer:
             data = {"status": "error", "message": str(e)}
             data_json = json.dumps(data)
             return Response(content=data_json, status_code=503)
+
+    async def _collect_check_results(self, checks: Checks | None) -> dict[str, bool]:
+        """Run health checks and return their boolean results.
+
+        Args:
+            checks: Mapping of check names to callables.
+
+        Returns:
+            A dictionary of check names to boolean results.
+
+        """
+        results: dict[str, bool] = {}
+        if not checks:
+            return results
+
+        for check_name, check_fn in checks.items():
+            result = check_fn()
+            results[check_name] = (
+                await result if inspect.isawaitable(result) else result
+            )
+
+        return results
+
+    def _evaluate_health_status(self, results: dict[str, bool]) -> tuple[str, int]:
+        """Evaluate overall health status and HTTP code based on results.
+
+        Args:
+            results: Mapping of check names to boolean results.
+
+        Returns:
+            A tuple of status string and HTTP status code.
+
+        """
+        if not results or all(results.values()):
+            return "ok", 200
+
+        return "error", 503
 
     def start_monitoring_server(self) -> None:
         """Start the monitoring server in a background thread."""

@@ -1,3 +1,5 @@
+import asyncio
+
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -58,3 +60,22 @@ def test_readiness(client: TestClient, readiness_flag: ReadinessFlag) -> None:
     response = client.get("/healthz/readiness")
     assert response.status_code == 200
     assert response.text == '{"status": "ok", "checks": {"is_ready": true}}'
+
+
+def test_readiness_supports_async_checks() -> None:
+    async def async_ready() -> bool:
+        await asyncio.sleep(0)
+        return True
+
+    def sync_ready() -> bool:
+        return True
+
+    app = FastAPI()
+    config = MonitoringServerConfig({"async_ready": async_ready, "sync_ready": sync_ready})
+    monitoring_server = MonitoringServer(HOST, PORT, config)
+    monitoring_server.add_paths(app)
+    client = TestClient(app)
+
+    response = client.get("/healthz/readiness")
+    assert response.status_code == 200
+    assert response.text == '{"status": "ok", "checks": {"async_ready": true, "sync_ready": true}}'
