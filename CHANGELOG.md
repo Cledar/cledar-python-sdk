@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v2.1.4 (2026-02-17)
+
+### Bug Fixes
+
+- **CPL-240**: Allow awaitable health checks in monitoring context
+  ([#23](https://github.com/Cledar/cledar-python-sdk/pull/23),
+  [`32f2373`](https://github.com/Cledar/cledar-python-sdk/commit/32f23739ac0979fffcf57e4592053f58acbce2d4))
+
+
 ## v2.1.3 (2026-02-17)
 
 ### Bug Fixes
