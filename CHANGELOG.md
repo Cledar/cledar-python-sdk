@@ -2,6 +2,24 @@
 
 <!-- version list -->
 
+## v2.2.0 (2026-02-19)
+
+### Build System
+
+- **deps**: Bump aiohttp from 3.13.0 to 3.13.3
+  ([#18](https://github.com/Cledar/cledar-python-sdk/pull/18),
+  [`71c873d`](https://github.com/Cledar/cledar-python-sdk/commit/71c873d425a9a4e814f824b9158be2c30775acd3))
+
+- **deps**: Bump cryptography from 46.0.3 to 46.0.5
+  ([#24](https://github.com/Cledar/cledar-python-sdk/pull/24),
+  [`d687b31`](https://github.com/Cledar/cledar-python-sdk/commit/d687b3106152663e4be6aa2f27f34b5a155cdbaa))
+
+### Features
+
+- **CPL-268**: Add asynchronous object storage functionality and corresponding tests
+  ([`2ecbc02`](https://github.com/Cledar/cledar-python-sdk/commit/2ecbc02346688dc90d0419a69c8db5e9fa848e15))
+
+
 ## v2.1.4 (2026-02-17)
 
 ### Bug Fixes
