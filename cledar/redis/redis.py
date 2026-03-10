@@ -207,7 +207,7 @@ class RedisService:
             logger.debug("Value is none", extra={"key": key})
         try:
             processed_value = self._prepare_for_serialization(value)
-            if isinstance(processed_value, (dict, list)):
+            if isinstance(processed_value, dict | list):
                 try:
                     final_value = json.dumps(processed_value, cls=CustomEncoder)
 
@@ -559,7 +559,7 @@ class AsyncRedisService:
             logger.debug("Value is none", extra={"key": key})
         try:
             processed_value = self._prepare_for_serialization(value)
-            if isinstance(processed_value, (dict, list)):
+            if isinstance(processed_value, dict | list):
                 try:
                     final_value = json.dumps(processed_value, cls=CustomEncoder)
 

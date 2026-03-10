@@ -35,7 +35,7 @@ def fixture_async_object_storage_service(
     mock_client.set_session = AsyncMock(return_value=AsyncMock())
     fsspec_client.return_value = mock_client
     service = AsyncObjectStorageService(object_storage_config)
-    service.client = mock_client
+    service.s3_client = mock_client
     service.local_client = MagicMock()
     return service
 
@@ -118,14 +118,14 @@ async def test_upload_buffer_with_bucket_key_uses_s3(
     bucket_name = fake.name()
     key = fake.name()
 
-    async_object_storage_service.client._pipe_file = AsyncMock()
+    async_object_storage_service.s3_client._pipe_file = AsyncMock()
 
     await async_object_storage_service.upload_buffer(
         buffer=buffer_bytes, bucket=bucket_name, key=key
     )
 
-    async_object_storage_service.client._pipe_file.assert_called_once()
-    call_args = async_object_storage_service.client._pipe_file.call_args
+    async_object_storage_service.s3_client._pipe_file.assert_called_once()
+    call_args = async_object_storage_service.s3_client._pipe_file.call_args
     assert f"s3://{bucket_name}/{key}" in str(call_args)
 
 
@@ -137,13 +137,13 @@ async def test_upload_buffer_with_s3_path(
     buffer_bytes = io.BytesIO(fake.text().encode())
     destination_path = f"s3://{fake.name()}/{fake.name()}"
 
-    async_object_storage_service.client._pipe_file = AsyncMock()
+    async_object_storage_service.s3_client._pipe_file = AsyncMock()
 
     await async_object_storage_service.upload_buffer(
         buffer=buffer_bytes, destination_path=destination_path
     )
 
-    async_object_storage_service.client._pipe_file.assert_called_once_with(
+    async_object_storage_service.s3_client._pipe_file.assert_called_once_with(
         path=destination_path, value=buffer_bytes.getvalue()
     )
 
@@ -208,7 +208,7 @@ async def test_upload_buffer_exception(
     bucket_name = fake.name()
     key = fake.name()
 
-    async_object_storage_service.client._pipe_file = AsyncMock(
+    async_object_storage_service.s3_client._pipe_file = AsyncMock(
         side_effect=OSError("Upload failed")
     )
 
@@ -230,14 +230,14 @@ async def test_read_file_with_bucket_key_uses_s3(
     key = fake.name()
     expected_content = fake.text().encode()
 
-    async_object_storage_service.client._cat_file = AsyncMock(
+    async_object_storage_service.s3_client._cat_file = AsyncMock(
         return_value=expected_content
     )
 
     result = await async_object_storage_service.read_file(bucket=bucket_name, key=key)
 
     assert result == expected_content
-    async_object_storage_service.client._cat_file.assert_called_once_with(
+    async_object_storage_service.s3_client._cat_file.assert_called_once_with(
         path=f"s3://{bucket_name}/{key}"
     )
 
@@ -251,7 +251,7 @@ async def test_read_file_with_retry_success(
     key = fake.name()
     expected_content = fake.text().encode()
 
-    async_object_storage_service.client._cat_file = AsyncMock(
+    async_object_storage_service.s3_client._cat_file = AsyncMock(
         side_effect=[OSError("Network error"), OSError("Network error"), expected_content]
     )
 
@@ -261,7 +261,7 @@ async def test_read_file_with_retry_success(
         )
 
     assert result == expected_content
-    assert async_object_storage_service.client._cat_file.call_count == 3
+    assert async_object_storage_service.s3_client._cat_file.call_count == 3
 
 
 @pytest.mark.asyncio
@@ -272,7 +272,7 @@ async def test_read_file_exception_after_retries(
     bucket_name = fake.name()
     key = fake.name()
 
-    async_object_storage_service.client._cat_file = AsyncMock(
+    async_object_storage_service.s3_client._cat_file = AsyncMock(
         side_effect=OSError("Network error")
     )
 
@@ -282,7 +282,7 @@ async def test_read_file_exception_after_retries(
                 bucket=bucket_name, key=key, max_tries=3
             )
 
-    assert async_object_storage_service.client._cat_file.call_count == 3
+    assert async_object_storage_service.s3_client._cat_file.call_count == 3
 
 
 @pytest.mark.asyncio
@@ -294,7 +294,7 @@ async def test_read_file_with_exponential_backoff(
     key = fake.name()
     expected_content = fake.text().encode()
 
-    async_object_storage_service.client._cat_file = AsyncMock(
+    async_object_storage_service.s3_client._cat_file = AsyncMock(
         side_effect=[OSError("error"), OSError("error"), expected_content]
     )
 
@@ -320,13 +320,13 @@ async def test_upload_file_with_bucket_key(
     bucket_name = fake.name()
     key = fake.name()
 
-    async_object_storage_service.client._put_file = AsyncMock()
+    async_object_storage_service.s3_client._put_file = AsyncMock()
 
     await async_object_storage_service.upload_file(
         file_path=file_path, bucket=bucket_name, key=key
     )
 
-    async_object_storage_service.client._put_file.assert_called_once_with(
+    async_object_storage_service.s3_client._put_file.assert_called_once_with(
         lpath=file_path, rpath=f"s3://{bucket_name}/{key}"
     )
 
@@ -339,13 +339,13 @@ async def test_upload_file_with_path(
     file_path = fake.file_path()
     destination_path = f"s3://{fake.name()}/{fake.name()}"
 
-    async_object_storage_service.client._put_file = AsyncMock()
+    async_object_storage_service.s3_client._put_file = AsyncMock()
 
     await async_object_storage_service.upload_file(
         file_path=file_path, destination_path=destination_path
     )
 
-    async_object_storage_service.client._put_file.assert_called_once_with(
+    async_object_storage_service.s3_client._put_file.assert_called_once_with(
         lpath=file_path, rpath=destination_path
     )
 
@@ -359,7 +359,7 @@ async def test_upload_file_exception(
     bucket_name = fake.name()
     key = fake.name()
 
-    async_object_storage_service.client._put_file = AsyncMock(
+    async_object_storage_service.s3_client._put_file = AsyncMock(
         side_effect=OSError("Upload failed")
     )
 
@@ -384,7 +384,7 @@ async def test_list_objects_recursive_s3(
         f"s3://{bucket}/{prefix}/file2.txt",
         f"s3://{bucket}/{prefix}/subfolder/file3.txt",
     ]
-    async_object_storage_service.client._find = AsyncMock(return_value=mock_objects)
+    async_object_storage_service.s3_client._find = AsyncMock(return_value=mock_objects)
 
     result = await async_object_storage_service.list_objects(
         bucket=bucket, prefix=prefix, recursive=True
@@ -407,7 +407,7 @@ async def test_list_objects_non_recursive_s3(
         f"s3://{bucket}/{prefix}/file1.txt",
         f"s3://{bucket}/{prefix}/file2.txt",
     ]
-    async_object_storage_service.client._ls = AsyncMock(return_value=mock_objects)
+    async_object_storage_service.s3_client._ls = AsyncMock(return_value=mock_objects)
 
     result = await async_object_storage_service.list_objects(
         bucket=bucket, prefix=prefix, recursive=False
@@ -425,12 +425,12 @@ async def test_list_objects_with_path(
     """Test list_objects with path parameter."""
     path = f"s3://{fake.name()}/test/"
     mock_objects = [f"{path}file1.txt", f"{path}file2.txt"]
-    async_object_storage_service.client._find = AsyncMock(return_value=mock_objects)
+    async_object_storage_service.s3_client._find = AsyncMock(return_value=mock_objects)
 
     result = await async_object_storage_service.list_objects(path=path, recursive=True)
 
     assert len(result) == 2
-    async_object_storage_service.client._find.assert_called_once()
+    async_object_storage_service.s3_client._find.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -439,7 +439,7 @@ async def test_list_objects_exception(
 ) -> None:
     """Test list_objects raises ListObjectsError on failure."""
     bucket = fake.name()
-    async_object_storage_service.client._find = AsyncMock(
+    async_object_storage_service.s3_client._find = AsyncMock(
         side_effect=OSError("List failed")
     )
 
@@ -458,11 +458,11 @@ async def test_delete_file_s3(
     bucket = fake.name()
     key = "test/file.txt"
 
-    async_object_storage_service.client._rm = AsyncMock()
+    async_object_storage_service.s3_client._rm = AsyncMock()
 
     await async_object_storage_service.delete_file(bucket=bucket, key=key)
 
-    async_object_storage_service.client._rm.assert_called_once_with(
+    async_object_storage_service.s3_client._rm.assert_called_once_with(
         f"s3://{bucket}/{key}"
     )
 
@@ -489,7 +489,7 @@ async def test_delete_file_exception(
     """Test delete_file raises DeleteFileError on failure."""
     bucket = fake.name()
     key = "test/file.txt"
-    async_object_storage_service.client._rm = AsyncMock(
+    async_object_storage_service.s3_client._rm = AsyncMock(
         side_effect=OSError("Delete failed")
     )
 
@@ -507,12 +507,12 @@ async def test_file_exists_true_s3(
     """Test file_exists returns True for existing S3 file."""
     bucket = fake.name()
     key = "test/file.txt"
-    async_object_storage_service.client._exists = AsyncMock(return_value=True)
+    async_object_storage_service.s3_client._exists = AsyncMock(return_value=True)
 
     result = await async_object_storage_service.file_exists(bucket=bucket, key=key)
 
     assert result is True
-    async_object_storage_service.client._exists.assert_called_once_with(
+    async_object_storage_service.s3_client._exists.assert_called_once_with(
         f"s3://{bucket}/{key}"
     )
 
@@ -524,12 +524,12 @@ async def test_file_exists_false_s3(
     """Test file_exists returns False for non-existing S3 file."""
     bucket = fake.name()
     key = "test/file.txt"
-    async_object_storage_service.client._exists = AsyncMock(return_value=False)
+    async_object_storage_service.s3_client._exists = AsyncMock(return_value=False)
 
     result = await async_object_storage_service.file_exists(bucket=bucket, key=key)
 
     assert result is False
-    async_object_storage_service.client._exists.assert_called_once_with(
+    async_object_storage_service.s3_client._exists.assert_called_once_with(
         f"s3://{bucket}/{key}"
     )
 
@@ -557,7 +557,7 @@ async def test_file_exists_exception(
     """Test file_exists raises CheckFileExistenceError on failure."""
     bucket = fake.name()
     key = "test/file.txt"
-    async_object_storage_service.client._exists = AsyncMock(
+    async_object_storage_service.s3_client._exists = AsyncMock(
         side_effect=OSError("Check failed")
     )
 
@@ -577,13 +577,13 @@ async def test_download_file_s3(
     key = "test/file.txt"
     dest_path = "/tmp/downloaded_file.txt"
 
-    async_object_storage_service.client._get_file = AsyncMock()
+    async_object_storage_service.s3_client._get_file = AsyncMock()
 
     await async_object_storage_service.download_file(
         dest_path, bucket=bucket, key=key
     )
 
-    async_object_storage_service.client._get_file.assert_called_once_with(
+    async_object_storage_service.s3_client._get_file.assert_called_once_with(
         rpath=f"s3://{bucket}/{key}", lpath=dest_path
     )
 
@@ -597,7 +597,7 @@ async def test_download_file_with_retry_success(
     key = "test/file.txt"
     dest_path = "/tmp/downloaded_file.txt"
 
-    async_object_storage_service.client._get_file = AsyncMock(
+    async_object_storage_service.s3_client._get_file = AsyncMock(
         side_effect=[OSError("Network error"), OSError("Network error"), None]
     )
 
@@ -606,7 +606,7 @@ async def test_download_file_with_retry_success(
             dest_path, bucket=bucket, key=key, max_tries=3
         )
 
-    assert async_object_storage_service.client._get_file.call_count == 3
+    assert async_object_storage_service.s3_client._get_file.call_count == 3
 
 
 @pytest.mark.asyncio
@@ -617,7 +617,7 @@ async def test_download_file_exception_after_retries(
     bucket = fake.name()
     key = "test/file.txt"
     dest_path = "/tmp/downloaded_file.txt"
-    async_object_storage_service.client._get_file = AsyncMock(
+    async_object_storage_service.s3_client._get_file = AsyncMock(
         side_effect=OSError("Network error")
     )
 
@@ -627,7 +627,7 @@ async def test_download_file_exception_after_retries(
                 dest_path, bucket=bucket, key=key, max_tries=3
             )
 
-    assert async_object_storage_service.client._get_file.call_count == 3
+    assert async_object_storage_service.s3_client._get_file.call_count == 3
 
 
 @pytest.mark.asyncio
@@ -639,7 +639,7 @@ async def test_download_file_with_exponential_backoff(
     key = "test/file.txt"
     dest_path = "/tmp/downloaded_file.txt"
 
-    async_object_storage_service.client._get_file = AsyncMock(
+    async_object_storage_service.s3_client._get_file = AsyncMock(
         side_effect=[OSError("error"), OSError("error"), None]
     )
 
@@ -664,14 +664,14 @@ async def test_get_file_size_s3(
     bucket = fake.name()
     key = "test/file.txt"
     expected_size = 1024
-    async_object_storage_service.client._info = AsyncMock(
+    async_object_storage_service.s3_client._info = AsyncMock(
         return_value={"size": expected_size}
     )
 
     result = await async_object_storage_service.get_file_size(bucket=bucket, key=key)
 
     assert result == expected_size
-    async_object_storage_service.client._info.assert_called_once_with(
+    async_object_storage_service.s3_client._info.assert_called_once_with(
         f"s3://{bucket}/{key}"
     )
 
@@ -702,7 +702,7 @@ async def test_get_file_size_exception(
     """Test get_file_size raises GetFileSizeError on failure."""
     bucket = fake.name()
     key = "test/file.txt"
-    async_object_storage_service.client._info = AsyncMock(
+    async_object_storage_service.s3_client._info = AsyncMock(
         side_effect=OSError("Info failed")
     )
 
@@ -725,12 +725,12 @@ async def test_get_file_info_s3(
         "LastModified": "2025-01-01T00:00:00Z",
         "ContentType": "text/plain",
     }
-    async_object_storage_service.client._info = AsyncMock(return_value=expected_info)
+    async_object_storage_service.s3_client._info = AsyncMock(return_value=expected_info)
 
     result = await async_object_storage_service.get_file_info(bucket=bucket, key=key)
 
     assert result == expected_info
-    async_object_storage_service.client._info.assert_called_once_with(
+    async_object_storage_service.s3_client._info.assert_called_once_with(
         f"s3://{bucket}/{key}"
     )
 
@@ -761,7 +761,7 @@ async def test_get_file_info_exception(
     """Test get_file_info raises GetFileInfoError on failure."""
     bucket = fake.name()
     key = "test/file.txt"
-    async_object_storage_service.client._info = AsyncMock(
+    async_object_storage_service.s3_client._info = AsyncMock(
         side_effect=OSError("Info failed")
     )
 
@@ -782,7 +782,7 @@ async def test_copy_file_s3_to_s3(
     dest_bucket = fake.name()
     dest_key = "test/destination.txt"
 
-    async_object_storage_service.client._copy = AsyncMock()
+    async_object_storage_service.s3_client._copy = AsyncMock()
 
     await async_object_storage_service.copy_file(
         source_bucket=source_bucket,
@@ -791,7 +791,7 @@ async def test_copy_file_s3_to_s3(
         dest_key=dest_key,
     )
 
-    async_object_storage_service.client._copy.assert_called_once_with(
+    async_object_storage_service.s3_client._copy.assert_called_once_with(
         path1=f"s3://{source_bucket}/{source_key}",
         path2=f"s3://{dest_bucket}/{dest_key}",
     )
@@ -806,13 +806,13 @@ async def test_copy_file_s3_to_local(
     source_key = "test/source.txt"
     dest_path = "/tmp/dest/file.txt"
 
-    async_object_storage_service.client._copy = AsyncMock()
+    async_object_storage_service.s3_client._copy = AsyncMock()
 
     await async_object_storage_service.copy_file(
         source_bucket=source_bucket, source_key=source_key, dest_path=dest_path
     )
 
-    async_object_storage_service.client._copy.assert_called_once_with(
+    async_object_storage_service.s3_client._copy.assert_called_once_with(
         path1=f"s3://{source_bucket}/{source_key}", path2=dest_path
     )
 
@@ -826,7 +826,7 @@ async def test_copy_file_mixed_backend(
     dest_path = f"abfs://{fake.name()}/dest.txt"
     test_data = b"test data"
 
-    async_object_storage_service.client._cat_file = AsyncMock(return_value=test_data)
+    async_object_storage_service.s3_client._cat_file = AsyncMock(return_value=test_data)
     async_object_storage_service.azure_client = AsyncMock()
     async_object_storage_service.azure_client._pipe_file = AsyncMock()
 
@@ -834,7 +834,7 @@ async def test_copy_file_mixed_backend(
         source_path=source_path, dest_path=dest_path
     )
 
-    async_object_storage_service.client._cat_file.assert_called_once_with(source_path)
+    async_object_storage_service.s3_client._cat_file.assert_called_once_with(source_path)
     async_object_storage_service.azure_client._pipe_file.assert_called_once_with(
         dest_path, test_data
     )
@@ -849,7 +849,7 @@ async def test_copy_file_exception(
     source_key = "test/source.txt"
     dest_bucket = fake.name()
     dest_key = "test/destination.txt"
-    async_object_storage_service.client._copy = AsyncMock(
+    async_object_storage_service.s3_client._copy = AsyncMock(
         side_effect=OSError("Copy failed")
     )
 
@@ -875,7 +875,7 @@ async def test_move_file_s3_to_s3(
     dest_bucket = fake.name()
     dest_key = "test/destination.txt"
 
-    async_object_storage_service.client._mv = AsyncMock()
+    async_object_storage_service.s3_client._mv = AsyncMock()
 
     await async_object_storage_service.move_file(
         source_bucket=source_bucket,
@@ -884,7 +884,7 @@ async def test_move_file_s3_to_s3(
         dest_key=dest_key,
     )
 
-    async_object_storage_service.client._mv.assert_called_once_with(
+    async_object_storage_service.s3_client._mv.assert_called_once_with(
         path1=f"s3://{source_bucket}/{source_key}",
         path2=f"s3://{dest_bucket}/{dest_key}",
     )
@@ -899,13 +899,13 @@ async def test_move_file_s3_to_local(
     source_key = "test/source.txt"
     dest_path = "/tmp/dest/file.txt"
 
-    async_object_storage_service.client._mv = AsyncMock()
+    async_object_storage_service.s3_client._mv = AsyncMock()
 
     await async_object_storage_service.move_file(
         source_bucket=source_bucket, source_key=source_key, dest_path=dest_path
     )
 
-    async_object_storage_service.client._mv.assert_called_once_with(
+    async_object_storage_service.s3_client._mv.assert_called_once_with(
         path1=f"s3://{source_bucket}/{source_key}", path2=dest_path
     )
 
@@ -919,8 +919,8 @@ async def test_move_file_mixed_backend(
     dest_path = f"abfs://{fake.name()}/dest.txt"
     test_data = b"test data"
 
-    async_object_storage_service.client._cat_file = AsyncMock(return_value=test_data)
-    async_object_storage_service.client._rm = AsyncMock()
+    async_object_storage_service.s3_client._cat_file = AsyncMock(return_value=test_data)
+    async_object_storage_service.s3_client._rm = AsyncMock()
     async_object_storage_service.azure_client = AsyncMock()
     async_object_storage_service.azure_client._pipe_file = AsyncMock()
 
@@ -928,9 +928,9 @@ async def test_move_file_mixed_backend(
         source_path=source_path, dest_path=dest_path
     )
 
-    async_object_storage_service.client._cat_file.assert_called_once()
+    async_object_storage_service.s3_client._cat_file.assert_called_once()
     async_object_storage_service.azure_client._pipe_file.assert_called_once()
-    async_object_storage_service.client._rm.assert_called_once_with(source_path)
+    async_object_storage_service.s3_client._rm.assert_called_once_with(source_path)
 
 
 @pytest.mark.asyncio
@@ -942,7 +942,7 @@ async def test_move_file_exception(
     source_key = "test/source.txt"
     dest_bucket = fake.name()
     dest_key = "test/destination.txt"
-    async_object_storage_service.client._mv = AsyncMock(
+    async_object_storage_service.s3_client._mv = AsyncMock(
         side_effect=OSError("Move failed")
     )
 
@@ -964,12 +964,12 @@ async def test_has_bucket_exists(
 ) -> None:
     """Test has_bucket returns True for existing bucket."""
     bucket_name = fake.name()
-    async_object_storage_service.client._ls = AsyncMock(return_value=[])
+    async_object_storage_service.s3_client._ls = AsyncMock(return_value=[])
 
     result = await async_object_storage_service.has_bucket(bucket=bucket_name)
 
     assert result is True
-    async_object_storage_service.client._ls.assert_called_once_with(path=bucket_name)
+    async_object_storage_service.s3_client._ls.assert_called_once_with(path=bucket_name)
 
 
 @pytest.mark.asyncio
@@ -978,7 +978,7 @@ async def test_has_bucket_not_exists(
 ) -> None:
     """Test has_bucket returns False for non-existing bucket."""
     bucket_name = fake.name()
-    async_object_storage_service.client._ls = AsyncMock(
+    async_object_storage_service.s3_client._ls = AsyncMock(
         side_effect=OSError("Bucket not found")
     )
 
@@ -993,7 +993,7 @@ async def test_has_bucket_throw_exception(
 ) -> None:
     """Test has_bucket raises exception when throw=True."""
     bucket_name = fake.name()
-    async_object_storage_service.client._ls = AsyncMock(
+    async_object_storage_service.s3_client._ls = AsyncMock(
         side_effect=OSError("Bucket not found")
     )
 
@@ -1009,7 +1009,7 @@ async def test_is_alive_true(
     async_object_storage_service: AsyncObjectStorageService,
 ) -> None:
     """Test is_alive returns True when service is accessible."""
-    async_object_storage_service.client._ls = AsyncMock(return_value=[])
+    async_object_storage_service.s3_client._ls = AsyncMock(return_value=[])
 
     result = await async_object_storage_service.is_alive()
 
@@ -1021,7 +1021,7 @@ async def test_is_alive_false(
     async_object_storage_service: AsyncObjectStorageService,
 ) -> None:
     """Test is_alive returns False when service is not accessible."""
-    async_object_storage_service.client._ls = AsyncMock(
+    async_object_storage_service.s3_client._ls = AsyncMock(
         side_effect=OSError("Connection failed")
     )
 

@@ -13,7 +13,7 @@ from .models import ObjectStorageServiceConfig, TransferPath
 class BaseObjectStorageService:
     """Base class containing common functionality for storage services."""
 
-    client: Any = None
+    s3_client: Any = None
     local_client: Any = None
     azure_client: Any = None
     config: ObjectStorageServiceConfig
@@ -93,7 +93,7 @@ class BaseObjectStorageService:
 
         """
         if backend == "s3":
-            return self.client
+            return self.s3_client
         if backend == "abfs":
             return self.azure_client
         return self.local_client

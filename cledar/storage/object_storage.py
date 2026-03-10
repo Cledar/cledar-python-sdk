@@ -28,6 +28,47 @@ from .models import ObjectStorageServiceConfig, TransferPath
 logger = logging.getLogger("object_storage_service")
 
 
+def _put_file(fs: Any, lpath: str, rpath: str) -> None:
+    """Upload local file to remote storage.
+
+    Args:
+        fs: Filesystem client.
+        lpath: Local file path.
+        rpath: Remote file path.
+
+    """
+    fs.put(lpath=lpath, rpath=rpath)
+
+
+def _get_file(fs: Any, src: str, dst: str) -> None:
+    """Download remote file to local storage.
+
+    Args:
+        fs: Filesystem client.
+        src: Remote source path.
+        dst: Local destination path.
+
+    """
+    fs.get(src, dst)
+
+
+def _list_via_find_or_ls(fs: Any, path: str, recursive: bool) -> list[str]:
+    """List files using find (recursive) or ls (non-recursive).
+
+    Args:
+        fs: Filesystem client.
+        path: Path to list.
+        recursive: Whether to list recursively.
+
+    Returns:
+        list[str]: List of file paths.
+
+    """
+    if recursive:
+        return cast(list[str], fs.find(path))
+    return cast(list[str], fs.ls(path, detail=False))
+
+
 class ObjectStorageService(BaseObjectStorageService):
     """Service for managing object storage operations across multiple backends."""
 
@@ -39,16 +80,17 @@ class ObjectStorageService(BaseObjectStorageService):
 
         """
         self.config = config
-        self.client = fsspec.filesystem(
-            "s3",
-            key=config.s3_access_key,
-            secret=config.s3_secret_key,
-            client_kwargs={"endpoint_url": config.s3_endpoint_url},
-            max_concurrency=config.s3_max_concurrency,
-        )
-        logger.info(
-            "Initiated filesystem", extra={"endpoint_url": config.s3_endpoint_url}
-        )
+        if config.s3_endpoint_url:
+            self.s3_client = fsspec.filesystem(
+                "s3",
+                key=config.s3_access_key,
+                secret=config.s3_secret_key,
+                client_kwargs={"endpoint_url": config.s3_endpoint_url},
+                max_concurrency=config.s3_max_concurrency,
+            )
+        else:
+            self.s3_client = None
+
         self.local_client = fsspec.filesystem("file")
 
         if config.azure_account_name and config.azure_account_key:
@@ -60,6 +102,15 @@ class ObjectStorageService(BaseObjectStorageService):
         else:
             self.azure_client = None
 
+        logger.info(
+            "Available filesystems",
+            extra={
+                "s3": self.s3_client is not None,
+                "azure": self.azure_client is not None,
+                "local": self.local_client is not None,
+            },
+        )
+
     def is_alive(self) -> bool:
         """Check if the storage service is accessible.
 
@@ -68,7 +119,14 @@ class ObjectStorageService(BaseObjectStorageService):
 
         """
         try:
-            self.client.ls(path="")
+            if self.s3_client:
+                self.s3_client.ls(path="")
+            elif self.azure_client:
+                self.azure_client.ls(path="")
+            elif self.local_client:
+                self.local_client.ls(path="")
+            else:
+                return False
             return True
         except (OSError, PermissionError, TimeoutError, FSTimeoutError):
             return False
@@ -85,7 +143,7 @@ class ObjectStorageService(BaseObjectStorageService):
 
         """
         buffer.seek(0)
-        with self.client.open(
+        with self.s3_client.open(
             path=f"{S3_PATH_PREFIX}{bucket}/{key}", mode="wb"
         ) as fobj:
             fobj.write(buffer.getbuffer())
@@ -101,7 +159,7 @@ class ObjectStorageService(BaseObjectStorageService):
 
         """
         buffer.seek(0)
-        with self.client.open(path=destination_path, mode="wb") as fobj:
+        with self.s3_client.open(path=destination_path, mode="wb") as fobj:
             fobj.write(buffer.getbuffer())
 
     def _write_buffer_to_abfs_path(
@@ -143,7 +201,7 @@ class ObjectStorageService(BaseObjectStorageService):
             bytes: File contents as bytes.
 
         """
-        with self.client.open(
+        with self.s3_client.open(
             path=f"{S3_PATH_PREFIX}{bucket}/{key}", mode="rb"
         ) as fobj:
             data: bytes = fobj.read()
@@ -159,7 +217,7 @@ class ObjectStorageService(BaseObjectStorageService):
             bytes: File contents as bytes.
 
         """
-        with self.client.open(path=path, mode="rb") as fobj:
+        with self.s3_client.open(path=path, mode="rb") as fobj:
             data: bytes = fobj.read()
             return data
 
@@ -191,44 +249,6 @@ class ObjectStorageService(BaseObjectStorageService):
             data: bytes = fobj.read()
             return data
 
-    def _put_file(self, fs: Any, lpath: str, rpath: str) -> None:
-        """Upload local file to remote storage.
-
-        Args:
-            fs: Filesystem client.
-            lpath: Local file path.
-            rpath: Remote file path.
-
-        """
-        fs.put(lpath=lpath, rpath=rpath)
-
-    def _get_file(self, fs: Any, src: str, dst: str) -> None:
-        """Download remote file to local storage.
-
-        Args:
-            fs: Filesystem client.
-            src: Remote source path.
-            dst: Local destination path.
-
-        """
-        fs.get(src, dst)
-
-    def _list_via_find_or_ls(self, fs: Any, path: str, recursive: bool) -> list[str]:
-        """List files using find (recursive) or ls (non-recursive).
-
-        Args:
-            fs: Filesystem client.
-            path: Path to list.
-            recursive: Whether to list recursively.
-
-        Returns:
-            list[str]: List of file paths.
-
-        """
-        if recursive:
-            return cast(list[str], fs.find(path))
-        return cast(list[str], fs.ls(path, detail=False))
-
     def _copy_with_backend(self, backend: str, src: str, dst: str) -> None:
         """Copy file using the appropriate backend.
 
@@ -239,7 +259,7 @@ class ObjectStorageService(BaseObjectStorageService):
 
         """
         if backend == "s3":
-            self.client.copy(src, dst)
+            self.s3_client.copy(src, dst)
             return
         if backend == "abfs":
             self.azure_client.copy(src, dst)
@@ -263,7 +283,7 @@ class ObjectStorageService(BaseObjectStorageService):
 
         """
         if backend == "s3":
-            self.client.move(src, dst)
+            self.s3_client.move(src, dst)
             return
         if backend == "abfs":
             self.azure_client.move(src, dst)
@@ -277,7 +297,7 @@ class ObjectStorageService(BaseObjectStorageService):
         ):
             dst_f.write(src_f.read())
         if self._is_s3_path(src):
-            self.client.rm(src)
+            self.s3_client.rm(src)
         elif self._is_abfs_path(src):
             self.azure_client.rm(src)
         else:
@@ -315,7 +335,14 @@ class ObjectStorageService(BaseObjectStorageService):
 
         """
         try:
-            self.client.ls(path=bucket)
+            if self.s3_client:
+                self.s3_client.ls(path=bucket)
+            elif self.azure_client:
+                self.azure_client.ls(path=bucket)
+            elif self.local_client:
+                self.local_client.ls(path=bucket)
+            else:
+                return False
             return True
         except (
             FileNotFoundError,
@@ -488,7 +515,7 @@ class ObjectStorageService(BaseObjectStorageService):
                 },
             )
             fs = self._get_fs_for_backend(backend_name)
-            self._put_file(fs, lpath=file_path, rpath=dst_path)
+            _put_file(fs, lpath=file_path, rpath=dst_path)
             logger.debug(
                 "Uploaded file",
                 extra={
@@ -549,7 +576,7 @@ class ObjectStorageService(BaseObjectStorageService):
                     },
                 )
                 fs = self._get_fs_for_backend(backend_name)
-                objects = self._list_via_find_or_ls(fs, resolved_path, recursive)
+                objects = _list_via_find_or_ls(fs, resolved_path, recursive)
                 logger.debug(
                     "Listed objects",
                     extra={
@@ -569,7 +596,7 @@ class ObjectStorageService(BaseObjectStorageService):
                     "Listing objects from S3",
                     extra={"bucket": bucket, "prefix": prefix, "recursive": recursive},
                 )
-                objects = self._list_via_find_or_ls(self.client, s3_path, recursive)
+                objects = _list_via_find_or_ls(self.s3_client, s3_path, recursive)
                 keys = self._normalize_s3_keys(bucket, objects)
                 logger.debug(
                     "Listed objects from S3",
@@ -618,13 +645,13 @@ class ObjectStorageService(BaseObjectStorageService):
                 logger.debug(
                     "Deleting file from S3", extra={"bucket": bucket, "key": key}
                 )
-                self.client.rm(s3_path)
+                self.s3_client.rm(s3_path)
                 logger.debug(
                     "Deleted file from S3", extra={"bucket": bucket, "key": key}
                 )
             elif path and self._is_s3_path(path):
                 logger.debug("Deleting file from S3 via path", extra={"path": path})
-                self.client.rm(path)
+                self.s3_client.rm(path)
                 logger.debug("Deleted file from S3 via path", extra={"path": path})
             elif path and self._is_abfs_path(path):
                 logger.debug("Deleting file from ABFS via path", extra={"path": path})
@@ -674,14 +701,14 @@ class ObjectStorageService(BaseObjectStorageService):
         try:
             if bucket and key:
                 s3_path = f"{S3_PATH_PREFIX}{bucket}/{key}"
-                exists = self.client.exists(s3_path)
+                exists = self.s3_client.exists(s3_path)
                 logger.debug(
                     "Checked file existence in S3",
                     extra={"bucket": bucket, "key": key, "exists": exists},
                 )
                 return bool(exists)
             if path and self._is_s3_path(path):
-                exists = self.client.exists(path)
+                exists = self.s3_client.exists(path)
                 logger.debug(
                     "Checked file existence in S3 via path",
                     extra={"path": path, "exists": exists},
@@ -749,7 +776,7 @@ class ObjectStorageService(BaseObjectStorageService):
                     },
                 )
                 fs = self._get_fs_for_backend(backend_name)
-                self._get_file(fs, src_path, dest_path)
+                _get_file(fs, src_path, dest_path)
                 logger.debug(
                     "Downloaded file",
                     extra={
@@ -805,7 +832,7 @@ class ObjectStorageService(BaseObjectStorageService):
                 logger.debug(
                     "Getting file size from S3", extra={"bucket": bucket, "key": key}
                 )
-                info = cast(dict[str, Any], self.client.info(s3_path))
+                info = cast(dict[str, Any], self.s3_client.info(s3_path))
                 size = self._size_from_info(info)
                 logger.debug(
                     "Got file size from S3",
@@ -814,7 +841,7 @@ class ObjectStorageService(BaseObjectStorageService):
                 return size
             if path and self._is_s3_path(path):
                 logger.debug("Getting file size from S3 via path", extra={"path": path})
-                info = cast(dict[str, Any], self.client.info(path))
+                info = cast(dict[str, Any], self.s3_client.info(path))
                 size = self._size_from_info(info)
                 logger.debug(
                     "Got file size from S3 via path",
@@ -885,7 +912,7 @@ class ObjectStorageService(BaseObjectStorageService):
                 logger.debug(
                     "Getting file info from S3", extra={"bucket": bucket, "key": key}
                 )
-                info = cast(dict[str, Any], self.client.info(s3_path))
+                info = cast(dict[str, Any], self.s3_client.info(s3_path))
                 logger.debug(
                     "Got file info from S3",
                     extra={"bucket": bucket, "key": key},
@@ -893,7 +920,7 @@ class ObjectStorageService(BaseObjectStorageService):
                 return info
             if path and self._is_s3_path(path):
                 logger.debug("Getting file info from S3 via path", extra={"path": path})
-                info = cast(dict[str, Any], self.client.info(path))
+                info = cast(dict[str, Any], self.s3_client.info(path))
                 logger.debug(
                     "Got file info from S3 via path",
                     extra={"path": path},

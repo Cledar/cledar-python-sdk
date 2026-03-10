@@ -29,6 +29,59 @@ from .models import ObjectStorageServiceConfig, TransferPath
 logger = logging.getLogger("async_object_storage_service")
 
 
+async def _put_file(fs: Any, lpath: str, rpath: str) -> None:
+    """Upload local file to remote storage.
+
+    Args:
+        fs: Filesystem client.
+        lpath: Local file path.
+        rpath: Remote file path.
+
+    """
+    if hasattr(fs, "_put_file"):
+        await fs._put_file(lpath=lpath, rpath=rpath)
+    else:
+        # Fallback for local filesystem
+        fs.put(lpath=lpath, rpath=rpath)
+
+
+async def _get_file(fs: Any, src: str, dst: str) -> None:
+    """Download remote file to local storage.
+
+    Args:
+        fs: Filesystem client.
+        src: Remote source path.
+        dst: Local destination path.
+
+    """
+    if hasattr(fs, "_get_file"):
+        await fs._get_file(rpath=src, lpath=dst)
+    else:
+        # Fallback for local filesystem
+        fs.get(src, dst)
+
+
+async def _list_via_find_or_ls(fs: Any, path: str, recursive: bool) -> list[str]:
+    """List files using find (recursive) or ls (non-recursive).
+
+    Args:
+        fs: Filesystem client.
+        path: Path to list.
+        recursive: Whether to list recursively.
+
+    Returns:
+        list[str]: List of file paths.
+
+    """
+    if recursive:
+        if hasattr(fs, "_find"):
+            return cast(list[str], await fs._find(path))
+        return cast(list[str], fs.find(path))
+    if hasattr(fs, "_ls"):
+        return cast(list[str], await fs._ls(path, detail=False))
+    return cast(list[str], fs.ls(path, detail=False))
+
+
 class AsyncObjectStorageService(BaseObjectStorageService):
     """Asynchronous service for managing object storage operations.
 
@@ -46,18 +99,17 @@ class AsyncObjectStorageService(BaseObjectStorageService):
 
         """
         self.config = config
-        self.client = fsspec.filesystem(
-            "s3",
-            key=config.s3_access_key,
-            secret=config.s3_secret_key,
-            client_kwargs={"endpoint_url": config.s3_endpoint_url},
-            max_concurrency=config.s3_max_concurrency,
-            asynchronous=True,
-        )
-        logger.info(
-            "Initiated async S3 filesystem",
-            extra={"endpoint_url": config.s3_endpoint_url},
-        )
+        if config.s3_endpoint_url:
+            self.s3_client = fsspec.filesystem(
+                "s3",
+                key=config.s3_access_key,
+                secret=config.s3_secret_key,
+                client_kwargs={"endpoint_url": config.s3_endpoint_url},
+                max_concurrency=config.s3_max_concurrency,
+                asynchronous=True,
+            )
+        else:
+            self.s3_client = None
         self.local_client = fsspec.filesystem("file")
 
         if config.azure_account_name and config.azure_account_key:
@@ -69,6 +121,14 @@ class AsyncObjectStorageService(BaseObjectStorageService):
             )
         else:
             self.azure_client = None
+        logger.info(
+            "Available filesystems",
+            extra={
+                "s3": self.s3_client is not None,
+                "azure": self.azure_client is not None,
+                "local": self.local_client is not None,
+            },
+        )
 
     async def __aenter__(self) -> "AsyncObjectStorageService":
         """Enter async context manager.
@@ -77,7 +137,7 @@ class AsyncObjectStorageService(BaseObjectStorageService):
             AsyncObjectStorageService: Self instance with active sessions.
 
         """
-        self._s3_session = await self.client.set_session()
+        self._s3_session = await self.s3_client.set_session()
         if self.azure_client:
             self._azure_session = await self.azure_client.set_session()
         return self
@@ -104,7 +164,14 @@ class AsyncObjectStorageService(BaseObjectStorageService):
 
         """
         try:
-            await self.client._ls(path="")
+            if self.s3_client:
+                await self.s3_client._ls(path="")
+            elif self.azure_client:
+                await self.azure_client._ls(path="")
+            elif self.local_client:
+                await self.local_client._ls(path="")
+            else:
+                return False
             return True
         except (OSError, PermissionError, TimeoutError, FSTimeoutError):
             return False
@@ -122,7 +189,9 @@ class AsyncObjectStorageService(BaseObjectStorageService):
         """
         buffer.seek(0)
         data = buffer.getvalue()
-        await self.client._pipe_file(path=f"{S3_PATH_PREFIX}{bucket}/{key}", value=data)
+        await self.s3_client._pipe_file(
+            path=f"{S3_PATH_PREFIX}{bucket}/{key}", value=data
+        )
 
     async def _write_buffer_to_s3_path(
         self, buffer: io.BytesIO, destination_path: str
@@ -136,7 +205,7 @@ class AsyncObjectStorageService(BaseObjectStorageService):
         """
         buffer.seek(0)
         data = buffer.getvalue()
-        await self.client._pipe_file(path=destination_path, value=data)
+        await self.s3_client._pipe_file(path=destination_path, value=data)
 
     async def _write_buffer_to_abfs_path(
         self, buffer: io.BytesIO, destination_path: str
@@ -177,7 +246,7 @@ class AsyncObjectStorageService(BaseObjectStorageService):
             bytes: File contents as bytes.
 
         """
-        data: bytes = await self.client._cat_file(
+        data: bytes = await self.s3_client._cat_file(
             path=f"{S3_PATH_PREFIX}{bucket}/{key}"
         )
         return data
@@ -192,7 +261,7 @@ class AsyncObjectStorageService(BaseObjectStorageService):
             bytes: File contents as bytes.
 
         """
-        data: bytes = await self.client._cat_file(path=path)
+        data: bytes = await self.s3_client._cat_file(path=path)
         return data
 
     async def _read_from_abfs_path(self, path: str) -> bytes:
@@ -222,58 +291,6 @@ class AsyncObjectStorageService(BaseObjectStorageService):
             data: bytes = fobj.read()
             return data
 
-    async def _put_file(self, fs: Any, lpath: str, rpath: str) -> None:
-        """Upload local file to remote storage.
-
-        Args:
-            fs: Filesystem client.
-            lpath: Local file path.
-            rpath: Remote file path.
-
-        """
-        if hasattr(fs, "_put_file"):
-            await fs._put_file(lpath=lpath, rpath=rpath)
-        else:
-            # Fallback for local filesystem
-            fs.put(lpath=lpath, rpath=rpath)
-
-    async def _get_file(self, fs: Any, src: str, dst: str) -> None:
-        """Download remote file to local storage.
-
-        Args:
-            fs: Filesystem client.
-            src: Remote source path.
-            dst: Local destination path.
-
-        """
-        if hasattr(fs, "_get_file"):
-            await fs._get_file(rpath=src, lpath=dst)
-        else:
-            # Fallback for local filesystem
-            fs.get(src, dst)
-
-    async def _list_via_find_or_ls(
-        self, fs: Any, path: str, recursive: bool
-    ) -> list[str]:
-        """List files using find (recursive) or ls (non-recursive).
-
-        Args:
-            fs: Filesystem client.
-            path: Path to list.
-            recursive: Whether to list recursively.
-
-        Returns:
-            list[str]: List of file paths.
-
-        """
-        if recursive:
-            if hasattr(fs, "_find"):
-                return cast(list[str], await fs._find(path))
-            return cast(list[str], fs.find(path))
-        if hasattr(fs, "_ls"):
-            return cast(list[str], await fs._ls(path, detail=False))
-        return cast(list[str], fs.ls(path, detail=False))
-
     async def _copy_with_backend(self, backend: str, src: str, dst: str) -> None:
         """Copy file using the appropriate backend.
 
@@ -284,7 +301,7 @@ class AsyncObjectStorageService(BaseObjectStorageService):
 
         """
         if backend == "s3":
-            await self.client._copy(path1=src, path2=dst)
+            await self.s3_client._copy(path1=src, path2=dst)
             return
         if backend == "abfs":
             await self.azure_client._copy(path1=src, path2=dst)
@@ -294,14 +311,14 @@ class AsyncObjectStorageService(BaseObjectStorageService):
             return
         # Mixed backend: read from source, write to destination
         if self._is_s3_path(src):
-            data = await self.client._cat_file(src)
+            data = await self.s3_client._cat_file(src)
         elif self._is_abfs_path(src):
             data = await self.azure_client._cat_file(src)
         else:
             data = self._read_from_local_path(src)
 
         if self._is_s3_path(dst):
-            await self.client._pipe_file(dst, data)
+            await self.s3_client._pipe_file(dst, data)
         elif self._is_abfs_path(dst):
             await self.azure_client._pipe_file(dst, data)
         else:
@@ -318,7 +335,7 @@ class AsyncObjectStorageService(BaseObjectStorageService):
 
         """
         if backend == "s3":
-            await self.client._mv(path1=src, path2=dst)
+            await self.s3_client._mv(path1=src, path2=dst)
             return
         if backend == "abfs":
             await self.azure_client._mv(path1=src, path2=dst)
@@ -329,7 +346,7 @@ class AsyncObjectStorageService(BaseObjectStorageService):
         # Mixed backend: copy then delete
         await self._copy_with_backend("mixed", src, dst)
         if self._is_s3_path(src):
-            await self.client._rm(src)
+            await self.s3_client._rm(src)
         elif self._is_abfs_path(src):
             await self.azure_client._rm(src)
         else:
@@ -367,7 +384,14 @@ class AsyncObjectStorageService(BaseObjectStorageService):
 
         """
         try:
-            await self.client._ls(path=bucket)
+            if self.s3_client:
+                await self.s3_client._ls(path=bucket)
+            elif self.azure_client:
+                await self.azure_client._ls(path=bucket)
+            elif self.local_client:
+                await self.local_client._ls(path=bucket)
+            else:
+                return False
             return True
         except (
             FileNotFoundError,
@@ -543,7 +567,7 @@ class AsyncObjectStorageService(BaseObjectStorageService):
                 },
             )
             fs = self._get_fs_for_backend(backend_name)
-            await self._put_file(fs, lpath=file_path, rpath=dst_path)
+            await _put_file(fs, lpath=file_path, rpath=dst_path)
             logger.debug(
                 "Uploaded file",
                 extra={
@@ -604,7 +628,7 @@ class AsyncObjectStorageService(BaseObjectStorageService):
                     },
                 )
                 fs = self._get_fs_for_backend(backend_name)
-                objects = await self._list_via_find_or_ls(fs, resolved_path, recursive)
+                objects = await _list_via_find_or_ls(fs, resolved_path, recursive)
                 logger.debug(
                     "Listed objects",
                     extra={
@@ -624,9 +648,7 @@ class AsyncObjectStorageService(BaseObjectStorageService):
                     "Listing objects from S3",
                     extra={"bucket": bucket, "prefix": prefix, "recursive": recursive},
                 )
-                objects = await self._list_via_find_or_ls(
-                    self.client, s3_path, recursive
-                )
+                objects = await _list_via_find_or_ls(self.s3_client, s3_path, recursive)
                 keys = self._normalize_s3_keys(bucket, objects)
                 logger.debug(
                     "Listed objects from S3",
@@ -675,13 +697,13 @@ class AsyncObjectStorageService(BaseObjectStorageService):
                 logger.debug(
                     "Deleting file from S3", extra={"bucket": bucket, "key": key}
                 )
-                await self.client._rm(s3_path)
+                await self.s3_client._rm(s3_path)
                 logger.debug(
                     "Deleted file from S3", extra={"bucket": bucket, "key": key}
                 )
             elif path and self._is_s3_path(path):
                 logger.debug("Deleting file from S3 via path", extra={"path": path})
-                await self.client._rm(path)
+                await self.s3_client._rm(path)
                 logger.debug("Deleted file from S3 via path", extra={"path": path})
             elif path and self._is_abfs_path(path):
                 logger.debug("Deleting file from ABFS via path", extra={"path": path})
@@ -731,14 +753,14 @@ class AsyncObjectStorageService(BaseObjectStorageService):
         try:
             if bucket and key:
                 s3_path = f"{S3_PATH_PREFIX}{bucket}/{key}"
-                exists = await self.client._exists(s3_path)
+                exists = await self.s3_client._exists(s3_path)
                 logger.debug(
                     "Checked file existence in S3",
                     extra={"bucket": bucket, "key": key, "exists": exists},
                 )
                 return bool(exists)
             if path and self._is_s3_path(path):
-                exists = await self.client._exists(path)
+                exists = await self.s3_client._exists(path)
                 logger.debug(
                     "Checked file existence in S3 via path",
                     extra={"path": path, "exists": exists},
@@ -806,7 +828,7 @@ class AsyncObjectStorageService(BaseObjectStorageService):
                     },
                 )
                 fs = self._get_fs_for_backend(backend_name)
-                await self._get_file(fs, src_path, dest_path)
+                await _get_file(fs, src_path, dest_path)
                 logger.debug(
                     "Downloaded file",
                     extra={
@@ -863,7 +885,7 @@ class AsyncObjectStorageService(BaseObjectStorageService):
                 logger.debug(
                     "Getting file size from S3", extra={"bucket": bucket, "key": key}
                 )
-                info = cast(dict[str, Any], await self.client._info(s3_path))
+                info = cast(dict[str, Any], await self.s3_client._info(s3_path))
                 size = self._size_from_info(info)
                 logger.debug(
                     "Got file size from S3",
@@ -872,7 +894,7 @@ class AsyncObjectStorageService(BaseObjectStorageService):
                 return size
             if path and self._is_s3_path(path):
                 logger.debug("Getting file size from S3 via path", extra={"path": path})
-                info = cast(dict[str, Any], await self.client._info(path))
+                info = cast(dict[str, Any], await self.s3_client._info(path))
                 size = self._size_from_info(info)
                 logger.debug(
                     "Got file size from S3 via path",
@@ -943,7 +965,7 @@ class AsyncObjectStorageService(BaseObjectStorageService):
                 logger.debug(
                     "Getting file info from S3", extra={"bucket": bucket, "key": key}
                 )
-                info = cast(dict[str, Any], await self.client._info(s3_path))
+                info = cast(dict[str, Any], await self.s3_client._info(s3_path))
                 logger.debug(
                     "Got file info from S3",
                     extra={"bucket": bucket, "key": key},
@@ -951,7 +973,7 @@ class AsyncObjectStorageService(BaseObjectStorageService):
                 return info
             if path and self._is_s3_path(path):
                 logger.debug("Getting file info from S3 via path", extra={"path": path})
-                info = cast(dict[str, Any], await self.client._info(path))
+                info = cast(dict[str, Any], await self.s3_client._info(path))
                 logger.debug(
                     "Got file info from S3 via path",
                     extra={"path": path},

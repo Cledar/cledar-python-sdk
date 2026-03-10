@@ -53,12 +53,12 @@ def test_bucket(
     Create a test bucket and clean it up after test.
     """
     bucket_name = f"test-bucket-{str(fake.uuid4())}"
-    object_storage_service.client.mkdir(f"s3://{bucket_name}")
+    object_storage_service.s3_client.mkdir(f"s3://{bucket_name}")
     yield bucket_name
     objects = object_storage_service.list_objects(bucket=bucket_name, recursive=True)
     for obj in objects:
         object_storage_service.delete_file(bucket=bucket_name, key=obj)
-    object_storage_service.client.rmdir(bucket_name)
+    object_storage_service.s3_client.rmdir(bucket_name)
 
 
 def test_is_alive(object_storage_service: ObjectStorageService) -> None:
