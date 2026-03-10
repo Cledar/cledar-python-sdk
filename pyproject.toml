@@ -69,6 +69,7 @@ quote-style = "double"
 [tool.mypy]
 plugins = ["pydantic.mypy"]
 strict = true
+python_version = "3.12"
 
 [build-system]
 requires = ["hatchling"]
