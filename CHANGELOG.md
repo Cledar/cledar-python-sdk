@@ -2,6 +2,20 @@
 
 <!-- version list -->
 
+## v2.2.1 (2026-03-12)
+
+### Refactoring
+
+- **CPL-559**: Fix project version
+  ([`73b358b`](https://github.com/Cledar/cledar-python-sdk/commit/73b358bcdbc5834d1be6b60ae135a90fa10bf940))
+
+- **CPL-559**: Make s3 client optional
+  ([`3c65baf`](https://github.com/Cledar/cledar-python-sdk/commit/3c65bafbd562a24dab67abf7ecc4c15968c90f20))
+
+- **CPL-559**: Test release tag update
+  ([`ab375ea`](https://github.com/Cledar/cledar-python-sdk/commit/ab375ea539e4f40bb2f7f2a0dcc18cfc7f247f88))
+
+
 ## v2.2.0 (2026-02-19)
 
 ### Build System
