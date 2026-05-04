@@ -14,7 +14,9 @@ class ObjectStorageServiceConfig(BaseModel):
         s3_secret_key: S3 secret key for authentication.
         s3_max_concurrency: Maximum number of concurrent S3 operations.
         azure_account_name: Azure storage account name.
-        azure_account_key: Azure storage account key.
+        azure_account_key: Optional Azure storage account key. For
+            ObjectStorageService, omitting this key allows adlfs/fsspec to use
+            its default Azure credential chain.
 
     """
 
