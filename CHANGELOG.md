@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v2.2.2 (2026-05-07)
+
+### Bug Fixes
+
+- Support Azure default auth for object storage
+  ([#37](https://github.com/Cledar/cledar-python-sdk/pull/37),
+  [`0000ea6`](https://github.com/Cledar/cledar-python-sdk/commit/0000ea6b6e74197895605f5a775428835c3db092))
+
+
 ## v2.2.1 (2026-03-12)
 
 ### Refactoring
