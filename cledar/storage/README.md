@@ -491,16 +491,40 @@ config = ObjectStorageServiceConfig(
     s3_secret_key="...",
     s3_max_concurrency=10,
     # Azure optional settings
-    azure_account_name="youraccount",           # optional
-    azure_account_key="<account key>",          # or OAuth below
-    azure_tenant_id="<tenant id>",              # optional OAuth
-    azure_client_id="<client id>",              # optional OAuth
-    azure_client_secret="<client secret>",      # optional OAuth
+    azure_account_name="youraccount",
+    azure_account_key="<account key>",  # optional; omit for default Azure auth
 )
 
 service = ObjectStorageService(config)
 content = service.read_file(path="abfs://container/path/to/file.txt")
 ```
+
+For `ObjectStorageService` in JupyterHub and Kubernetes workloads configured
+with Azure Workload Identity, pass only `azure_account_name`. The
+`adlfs`/`fsspec` Azure backend then uses its default Azure credential chain,
+including environment variables such as `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`,
+and `AZURE_FEDERATED_TOKEN_FILE`.
+
+Do not pass Azure OAuth fields such as `azure_tenant_id`, `azure_client_id`, or
+`azure_client_secret` to `ObjectStorageServiceConfig`; they are not fields on
+this model. When a workload needs OAuth or Workload Identity credentials, expose
+them through the standard Azure environment/configuration used by the Azure
+credential chain and keep only `azure_account_name` in this SDK config.
+
+```python
+from cledar.storage import ObjectStorageService, ObjectStorageServiceConfig
+
+service = ObjectStorageService(
+    ObjectStorageServiceConfig(azure_account_name="stdevosintplatform")
+)
+
+assert service.azure_client is not None
+containers = service.azure_client.ls("", detail=False)
+print(containers[:5])
+```
+
+Use `azure_account_key` only for local development or environments where
+account-key authentication is intentionally provisioned.
 
 
 ### Running Pre-commit Checks
@@ -526,4 +550,3 @@ See the main repository LICENSE file.
 ## Support
 
 For issues, questions, or contributions, please refer to the main repository's contribution guidelines.
-
