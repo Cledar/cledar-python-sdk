@@ -21,8 +21,8 @@ jobs:
   ruff-format:
     runs-on: self-hosted
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12.7"
       - name: Install Ruff
@@ -39,8 +39,8 @@ jobs:
   ruff-check:
     runs-on: self-hosted
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12.7"
       - name: Install Ruff
@@ -57,8 +57,8 @@ jobs:
   mypy:
     runs-on: self-hosted
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12.7"
       - name: Install uv and dependencies
@@ -78,8 +78,8 @@ jobs:
     env:
       TESTCONTAINERS_HOST_OVERRIDE: host.docker.internal
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12.7"
       - name: Install uv and dependencies
@@ -91,7 +91,7 @@ jobs:
           uv run coverage run -m pytest
           uv run coverage xml
       - name: Upload coverage
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-report
           path: coverage.xml
