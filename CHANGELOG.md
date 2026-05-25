@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v2.3.0 (2026-05-25)
+
+### Features
+
+- **CPL-0**: Add extend_path to allow multiple packages with cledar path
+  ([`e03ae61`](https://github.com/Cledar/cledar-python-sdk/commit/e03ae6177d4d3d829b07a8c8b5aea2e1441bacbb))
+
+
 ## v2.2.2 (2026-05-07)
 
 ### Bug Fixes
