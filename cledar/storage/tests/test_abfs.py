@@ -162,3 +162,44 @@ def test_move_file_abfs_to_abfs(object_storage_service: ObjectStorageService) ->
     object_storage_service.azure_client.move = MagicMock()
     object_storage_service.move_file(source_path=src, dest_path=dst)
     object_storage_service.azure_client.move.assert_called_once_with(src, dst)
+
+
+@patch("fsspec.filesystem")
+def test_init_abfs_with_account_key_uses_key_auth(
+    fsspec_client: MagicMock,
+) -> None:
+    ObjectStorageService(
+        ObjectStorageServiceConfig(
+            azure_account_name="storageaccount",
+            azure_account_key="account-key",
+        )
+    )
+
+    fsspec_client.assert_any_call("file")
+    fsspec_client.assert_any_call(
+        "abfs",
+        account_name="storageaccount",
+        account_key="account-key",
+    )
+
+
+@patch("fsspec.filesystem")
+def test_init_abfs_without_account_key_uses_default_azure_auth(
+    fsspec_client: MagicMock,
+) -> None:
+    ObjectStorageService(
+        ObjectStorageServiceConfig(azure_account_name="storageaccount")
+    )
+
+    fsspec_client.assert_any_call("file")
+    fsspec_client.assert_any_call("abfs", account_name="storageaccount")
+
+
+@patch("fsspec.filesystem")
+def test_init_without_azure_account_does_not_create_abfs_client(
+    fsspec_client: MagicMock,
+) -> None:
+    service = ObjectStorageService(ObjectStorageServiceConfig())
+
+    assert service.azure_client is None
+    fsspec_client.assert_called_once_with("file")

@@ -1,6 +1,6 @@
 [project]
 name = "cledar-sdk"
-version = "2.2.0"
+version = "2.3.0"
 description = "Cledar Python SDK"
 authors = [{ name = "Cledar" }]
 requires-python = ">=3.12.7"
@@ -123,6 +123,11 @@ upload_to_pypi = false
 build_command = "uv build"
 tag_format = "v{version}"
 major_on_zero = false
+
+[tool.semantic_release.commit_parser_options]
+allowed_tags = ["feat", "fix", "perf", "build", "ci", "refactor", "style", "test", "docs"]
+minor_tags = ["feat"]
+patch_tags = ["fix", "perf", "build", "ci", "refactor", "style", "test"]
 
 [tool.semantic_release.branches.main]
 match = "main"

@@ -93,12 +93,11 @@ class ObjectStorageService(BaseObjectStorageService):
 
         self.local_client = fsspec.filesystem("file")
 
-        if config.azure_account_name and config.azure_account_key:
-            self.azure_client = fsspec.filesystem(
-                "abfs",
-                account_name=config.azure_account_name,
-                account_key=config.azure_account_key,
-            )
+        if config.azure_account_name:
+            azure_options = {"account_name": config.azure_account_name}
+            if config.azure_account_key:
+                azure_options["account_key"] = config.azure_account_key
+            self.azure_client = fsspec.filesystem("abfs", **azure_options)
         else:
             self.azure_client = None
 
